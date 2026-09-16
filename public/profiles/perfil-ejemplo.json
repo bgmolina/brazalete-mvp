@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "name": "Plantilla ilustrativa — reemplazar UUID y formato",
+  "acceleration": {
+    "service": "12345678-1234-5678-1234-56789abcdef0",
+    "characteristic": "12345678-1234-5678-1234-56789abcdef1",
+    "calibrated": false,
+    "includesGravity": false,
+    "x": { "offset": 0, "type": "int16", "littleEndian": true, "scale": 0.001 },
+    "y": { "offset": 2, "type": "int16", "littleEndian": true, "scale": 0.001 },
+    "z": { "offset": 4, "type": "int16", "littleEndian": true, "scale": 0.001 }
+  },
+  "steps": {
+    "service": "12345678-1234-5678-1234-56789abcdef0",
+    "characteristic": "12345678-1234-5678-1234-56789abcdef2",
+    "value": { "offset": 0, "type": "uint32", "littleEndian": true, "scale": 1 }
+  }
+}
