@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
+import { publicUrl } from '@shared/utils/publicUrl'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -199,7 +200,7 @@ export function SettingsPage() {
         </div>
         <div className="profile-actions">
           <Button variant="outline" asChild>
-            <a href="/profiles/perfil-ejemplo.json" download>
+            <a href={publicUrl('profiles/perfil-ejemplo.json')} download>
               <Download /> Descargar plantilla
             </a>
           </Button>

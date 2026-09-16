@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Route, Routes } from 'react-router-dom'
 import { TooltipProvider } from '@/components/ui/tooltip'
 import { Toaster } from '@/components/ui/sonner'
 import { PageLoader } from './components/PageLoader'
@@ -12,7 +12,7 @@ const AppLayout = lazy(() =>
 export default function App() {
   return (
     <TooltipProvider>
-      <BrowserRouter>
+      <HashRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
             {authRoutes.map(({ path, Component }) => (
@@ -26,7 +26,7 @@ export default function App() {
             <Route path="*" element={<Navigate to="/demo" replace />} />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+      </HashRouter>
       <Toaster position="bottom-right" richColors />
     </TooltipProvider>
   )

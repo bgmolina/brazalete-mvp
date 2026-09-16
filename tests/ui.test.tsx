@@ -50,7 +50,7 @@ beforeEach(() => {
   realEngine.clearHistory()
   demoEngine.clearHistory()
   realEngine.connection('disconnected')
-  window.history.replaceState({}, '', '/login')
+  window.history.replaceState({}, '', '/#/login')
 })
 describe('Acceso y rutas', () => {
   it('valida campos y muestra errores accesibles', async () => {
@@ -77,29 +77,33 @@ describe('Acceso y rutas', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('no son correctos')
     expect(useAuthStore.getState().authenticated).toBe(false)
   })
-  it('sin entorno configurado no permite acceder', () => {
+  it('usa las credenciales demo predeterminadas cuando el entorno está vacío', async () => {
+    vi.stubEnv('VITE_ADMIN_USERNAME', '')
     vi.stubEnv('VITE_ADMIN_PASSWORD', '')
     render(
       <MemoryRouter>
         <LoginPage />
       </MemoryRouter>,
     )
-    expect(screen.getByRole('alert')).toHaveTextContent('.env.example')
-    expect(screen.getByRole('button', { name: /Ingresar/ })).toBeDisabled()
+    await userEvent.type(screen.getByLabelText('Usuario'), 'admin')
+    await userEvent.type(screen.getByLabelText('Contraseña'), 'admin')
+    await userEvent.click(screen.getByRole('button', { name: /Ingresar/ }))
+    expect(useAuthStore.getState().authenticated).toBe(true)
   })
-  it('un cambio de entorno inválido tampoco permite reutilizar una sesión abierta', async () => {
+  it('una configuración vacía conserva una sesión abierta usando los valores demo', async () => {
     vi.stubEnv('VITE_ADMIN_USERNAME', '')
+    vi.stubEnv('VITE_ADMIN_PASSWORD', '')
     useAuthStore.setState({ authenticated: true })
-    window.history.replaceState({}, '', '/demo')
+    window.history.replaceState({}, '', '/#/demo')
     render(<App />)
-    expect(await screen.findByRole('alert')).toHaveTextContent('Falta configurar')
-    expect(window.location.pathname).toBe('/login')
+    expect(await screen.findByText('Elena Martínez')).toBeVisible()
+    expect(window.location.hash).toBe('#/demo')
   })
   it('protege rutas y permite login, cambio de modo y logout', async () => {
-    window.history.replaceState({}, '', '/monitoreo')
+    window.history.replaceState({}, '', '/#/monitoreo')
     render(<App />)
     expect(await screen.findByRole('heading', { name: /Estamos para/ })).toBeVisible()
-    expect(window.location.pathname).toBe('/login')
+    expect(window.location.hash).toBe('#/login')
     await userEvent.type(screen.getByLabelText('Usuario'), 'admin')
     await userEvent.type(screen.getByLabelText('Contraseña'), 'admin')
     await userEvent.click(screen.getByRole('button', { name: /Ingresar a mi espacio/ }))

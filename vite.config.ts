@@ -3,7 +3,8 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath, URL } from 'node:url'
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  base: mode === 'github-pages' ? '/brazalete-mvp/' : '/',
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: Object.fromEntries(
@@ -23,4 +24,4 @@ export default defineConfig({
     strictPort: true,
     watch: { ignored: ['**/test-results/**', '**/playwright-report/**', '**/coverage/**'] },
   },
-})
+}))

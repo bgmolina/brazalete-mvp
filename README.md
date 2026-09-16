@@ -10,7 +10,6 @@ Requisitos: Node.js 22.12+ (o una versión LTS posterior), npm y Chrome/Edge de 
 
 ```bash
 npm ci
-cp .env.example .env.local
 npm run dev
 ```
 
@@ -21,7 +20,18 @@ VITE_ADMIN_USERNAME=admin
 VITE_ADMIN_PASSWORD=admin
 ```
 
-Cambiar los valores en `.env.local` y reiniciar Vite. Las variables `VITE_*` son públicas en el código cliente: **no usar credenciales reales**. El login es una barrera de demostración, no una autenticación segura. Si falta alguna variable, se bloquea el formulario y se indican los pasos de configuración. La sesión vive en `sessionStorage`; no se guarda la contraseña.
+`admin/admin` está definido como valor predeterminado en el código. Para cambiarlo, copiar `.env.example` a `.env.local`, editar ambos valores y reiniciar Vite. Las variables `VITE_*` son públicas en el código cliente: **no usar credenciales reales**. El login es una barrera de demostración, no una autenticación segura. La sesión vive en `sessionStorage`; no se guarda la contraseña.
+
+## GitHub Pages
+
+El sitio se publica en [bgmolina.github.io/brazalete-mvp](https://bgmolina.github.io/brazalete-mvp/) mediante GitHub Actions. El workflow valida tipos, lint y pruebas, compila Vite con base `/brazalete-mvp/` y publica exclusivamente `dist`.
+
+```bash
+npm run build:pages
+npm run preview:pages
+```
+
+Las rutas alojadas usan hash, por ejemplo `/brazalete-mvp/#/demo`, para permitir navegación y recarga sin un servidor con fallback SPA. Las variables de repositorio opcionales `VITE_ADMIN_USERNAME` y `VITE_ADMIN_PASSWORD` pueden cambiar las credenciales durante el build; si están ausentes o vacías se usa `admin/admin`.
 
 ## Qué incluye
 
@@ -102,11 +112,14 @@ npm test
 npm run test:coverage
 npx playwright install chromium
 npm run test:e2e
+npm run test:e2e:pages
 npm run build
+npm run build:pages
 npm run preview
+npm run preview:pages
 ```
 
-Los E2E usan credenciales de prueba `admin/admin` e inician Vite si no está abierto. Si se reutiliza un servidor con credenciales distintas, detenerlo antes de ejecutar las pruebas. La previsualización de producción se abre en `localhost:4173` y utiliza las variables incorporadas durante el build.
+Los E2E usan credenciales de prueba `admin/admin` e inician Vite si no está abierto. Si se reutiliza un servidor con credenciales distintas, detenerlo antes de ejecutar las pruebas. `test:e2e:pages` compila y prueba la aplicación en `localhost:4173/brazalete-mvp/`, incluyendo recursos públicos y recarga de rutas. La previsualización de producción utiliza las variables incorporadas durante el build.
 
 Vitest cubre decodificación, detección, agregados, retención, errores de almacenamiento, componentes e integración BLE con mocks oficiales. Playwright recorre login por teclado, demo/real, BLE simulado, navegación, persistencia, configuración, limpieza y vistas de 1440, 820 y 390 px, con verificaciones automáticas de accesibilidad en login y panel. Los informes se generan en `coverage/`, `playwright-report/` y `test-results/` (ignorados por Git).
 

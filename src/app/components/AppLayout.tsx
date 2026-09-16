@@ -39,10 +39,7 @@ export function AppLayout() {
   useEffect(() => {
     if (routeMode) setLastMode(routeMode)
   }, [routeMode])
-  const configured = Boolean(
-    import.meta.env.VITE_ADMIN_USERNAME && import.meta.env.VITE_ADMIN_PASSWORD,
-  )
-  if (!authenticated || !configured) return <Navigate to="/login" replace />
+  if (!authenticated) return <Navigate to="/login" replace />
   const base = mode === 'demo' ? '/demo' : '/monitoreo'
   const page = location.pathname.endsWith('/alertas')
     ? 'Alertas y eventos'

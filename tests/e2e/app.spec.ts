@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 const login = async (page: Page) => {
-  await page.goto('/login')
+  await page.goto('/#/login')
   await page.getByLabel('Usuario', { exact: true }).fill('admin')
   await page.getByLabel('Contraseña', { exact: true }).fill('admin')
   await page.getByRole('button', { name: 'Ingresar a mi espacio' }).click()
@@ -46,7 +46,7 @@ test('selección de historial por teclado y navegación móvil con foco contenid
   await expect(page.getByRole('dialog', { name: 'Navegación principal' })).not.toBeVisible()
 })
 test('login por teclado, validación, sesión de pestaña y logout', async ({ page }) => {
-  await page.goto('/monitoreo')
+  await page.goto('/#/monitoreo')
   await expect(page).toHaveURL(/login/)
   await page.getByLabel('Usuario', { exact: true }).focus()
   await page.keyboard.type('admin')
@@ -56,7 +56,7 @@ test('login por teclado, validación, sesión de pestaña y logout', async ({ pa
   await expect(page.getByRole('alert')).toContainText('no son correctos')
   await page.getByLabel('Contraseña', { exact: true }).fill('admin')
   await page.keyboard.press('Enter')
-  await expect(page).toHaveURL(/demo$/)
+  await expect(page).toHaveURL(/#\/demo$/)
   await page.reload()
   await expect(page.getByText('Elena Martínez')).toBeVisible()
   await page.getByRole('button', { name: 'Cerrar sesión' }).click()
@@ -186,7 +186,7 @@ for (const viewport of [
 ]) {
   test(`revisión visual y accesibilidad ${viewport.width}px`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport)
-    await page.goto('/login')
+    await page.goto('/#/login')
     await expect(page.getByLabel('Usuario', { exact: true })).toBeVisible()
     await page.screenshot({ path: testInfo.outputPath('login.png'), fullPage: true })
     const loginAudit = await new AxeBuilder({ page })

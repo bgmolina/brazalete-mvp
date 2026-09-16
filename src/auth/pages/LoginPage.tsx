@@ -10,7 +10,7 @@ import { useAuthStore } from '@auth/store/authStore'
 export function LoginPage() {
   const vm = useLogin()
   const authenticated = useAuthStore((s) => s.authenticated)
-  if (authenticated && vm.configured) return <Navigate to="/demo" replace />
+  if (authenticated) return <Navigate to="/demo" replace />
   return (
     <main className="login-page">
       <section className="login-story">
@@ -41,12 +41,6 @@ export function LoginPage() {
             acompañarte.
           </h2>
           <p className="text-muted-foreground mt-3 mb-9">Ingresá a tu espacio de cuidado.</p>
-          {!vm.configured ? (
-            <div role="alert" className="notice notice-warning">
-              Falta configurar el acceso local. Copiá <code>.env.example</code> a{' '}
-              <code>.env.local</code> y reiniciá el servidor.
-            </div>
-          ) : null}
           <form onSubmit={vm.submit} className="space-y-6" noValidate>
             <div className="space-y-2.5">
               <Label htmlFor="username">Usuario</Label>
@@ -97,7 +91,6 @@ export function LoginPage() {
             <Button
               type="submit"
               className="h-12 w-full justify-between px-5"
-              disabled={!vm.configured}
             >
               Ingresar a mi espacio <ArrowRight size={17} />
             </Button>

@@ -168,7 +168,7 @@ export function DashboardPage() {
             <p>
               {a.supported
                 ? 'Encendé la pulsera, acercala a la computadora y elegila en la ventana de Bluetooth. Te mostraremos qué sensores están disponibles.'
-                : 'Necesitás Chrome o Edge de escritorio en localhost, con Web Bluetooth y el Bluetooth del equipo habilitados.'}
+                : 'Necesitás Chrome o Edge de escritorio en un sitio HTTPS o localhost, con Web Bluetooth y el Bluetooth del equipo habilitados.'}
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Button disabled={!a.supported || loading} onClick={() => void a.connect()}>
