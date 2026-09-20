@@ -58,7 +58,11 @@ La demo permite reposo, movimiento, lectura cero, posible caída y desconexión,
 
 Se admite el servicio estándar Heart Rate `0x180D` con característica `0x2A37`, mediciones de 8/16 bits y contacto cuando el dispositivo lo informa. La batería es opcional y se lee al conectar. El identificador es el asignado por el navegador, no una MAC.
 
-Los protocolos propietarios, como dispositivos que requieren autenticación Veepoo, **no se vuelven compatibles automáticamente**. Este MVP no adapta el SDK Android ni usa el backend PHP. Ver [perfiles BLE y compatibilidad](docs/perfiles-ble.md).
+El H7 compatible con Veepoo Health también está soportado directamente: si no existe el servicio cardíaco estándar, la página detecta el servicio Veepoo, autentica con la clave predeterminada `0000`, lee la batería e inicia la medición cardíaca continua. No necesita un perfil JSON ni la aplicación móvil como puente. Cerrá Veepoo Health y cualquier otra app que pueda ocupar el enlace antes de conectarlo. Aceleración, pasos y caídas del H7 permanecen como no compatibles hasta disponer de una señal documentada adecuada. Ver [perfiles BLE y compatibilidad](docs/perfiles-ble.md).
+
+Con el H7 conectado, el panel ofrece una medición guiada y un botón **Medir frecuencia / Actualizar BPM**. Cada pulsación envía una nueva solicitud al brazalete y muestra recomendaciones de ajuste, apoyo del brazo y ausencia de movimiento.
+
+Aunque el H7 ya esté emparejado en macOS, Chrome/Edge exige elegirlo desde **Conectar pulsera**: el emparejamiento del sistema no concede permiso Web Bluetooth ni ejecuta la autenticación y el comando de medición Veepoo.
 
 La conexión se conserva al navegar por el panel, alertas y configuración. Se detiene al desconectar, pasar a demo o cerrar sesión. Ante una pérdida inesperada se intentan tres reconexiones, con esperas de 1, 2 y 4 segundos. Si se agotan, es necesario volver a conectar desde la interfaz.
 
@@ -84,7 +88,7 @@ La ficha y el perfil se guardan en `brazalete:v1:settings`, hasta que se editen 
 
 ## Arquitectura
 
-React 19 · TypeScript estricto · Vite 7 · Tailwind CSS 4 · shadcn/ui · Recharts · Lucide · React Router · Zustand · React Hook Form/Zod · Beacio 2.1.1.
+React 19 · TypeScript estricto · Vite 7 · Tailwind CSS 4 · shadcn/ui · Recharts · Lucide · React Router · Zustand · React Hook Form/Zod · Beacio 2.1.1 · Veepoo SDK 1.1.23.
 
 ```text
 src/
@@ -96,6 +100,8 @@ src/
   components/ui/   componentes instalados con el CLI de shadcn
   lib/             utilidades de componentes
 ```
+
+El SDK oficial Veepoo está fijado al commit `f42ef8d3f1d71ebc3196a6a204c054325cc582e1` y se carga dinámicamente sólo al detectar su servicio propietario. La copia, licencia Apache-2.0, hash y procedencia están documentadas en `src/vendor/veepoo/`.
 
 La organización toma como referencia los módulos del frontend Rico Antojo. Las páginas componen la interfaz; los hooks y servicios resuelven la lógica. Las rutas y los gráficos se cargan bajo demanda. El motor procesa las muestras fuera de React y publica una instantánea por segundo, salvo eventos/cambios de estado inmediatos.
 
@@ -131,5 +137,6 @@ La compatibilidad de **un modelo físico concreto queda pendiente** hasta realiz
 - [Vite: variables de entorno](https://vite.dev/guide/env-and-mode): exposición de variables `VITE_*`.
 - [SDK Beacio](https://github.com/wklm/beacio-sdk): sucesor publicado del SDK consultado mediante Context7. Implementación contrastada con las declaraciones `.d.ts` y el código de `@beacio/core@2.1.1` / `@beacio/react@2.1.1` instalados.
 - [Web Bluetooth](https://developer.chrome.com/docs/capabilities/bluetooth): selección desde una interacción del usuario y acceso a servicios GATT en contexto seguro.
+- [SDK oficial Veepoo para mini-programas](https://github.com/HBandSDK/WeChat_Mini_Program_Ble_SDK): protocolo propietario usado por el H7 y transportado localmente sobre Web Bluetooth.
 
 Se conserva la dependencia preexistente `@wklm/skill` como referencia; no se importa en la aplicación. No se utiliza ninguna API key de Beacio ni su infraestructura de notificaciones.

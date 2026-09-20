@@ -29,6 +29,7 @@ function DemoRuntime({ children }: { children: ReactNode }) {
       scenario,
       connect: async () => {},
       disconnect: () => {},
+      measureHeartRate: () => {},
       simulate: (s) => {
         demo.setScenario(s)
         setScenario(s)
@@ -47,16 +48,20 @@ function DemoRuntime({ children }: { children: ReactNode }) {
 }
 function RealRuntime({ children }: { children: ReactNode }) {
   const bluetooth = useBluetoothMonitor()
-  const value: MonitoringActions = {
-    mode: 'real',
-    supported: bluetooth.isSupported,
-    connect: bluetooth.connect,
-    disconnect: bluetooth.disconnect,
-    scenario: 'rest',
-    simulate: () => {},
-    togglePause: () => {},
-    resetDemo: () => {},
-  }
+  const value = useMemo<MonitoringActions>(
+    () => ({
+      mode: 'real',
+      supported: bluetooth.isSupported,
+      connect: bluetooth.connect,
+      disconnect: bluetooth.disconnect,
+      measureHeartRate: bluetooth.measureHeartRate,
+      scenario: 'rest',
+      simulate: () => {},
+      togglePause: () => {},
+      resetDemo: () => {},
+    }),
+    [bluetooth.connect, bluetooth.disconnect, bluetooth.isSupported, bluetooth.measureHeartRate],
+  )
   return (
     <MonitoringActionsContext.Provider value={value}>{children}</MonitoringActionsContext.Provider>
   )

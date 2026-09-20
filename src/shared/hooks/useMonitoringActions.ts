@@ -6,6 +6,7 @@ export interface MonitoringActions {
   supported: boolean
   connect: () => Promise<void>
   disconnect: () => void
+  measureHeartRate: () => void
   scenario: Scenario
   simulate: (scenario: Scenario) => void
   togglePause: () => void

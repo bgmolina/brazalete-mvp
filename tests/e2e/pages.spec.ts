@@ -23,6 +23,31 @@ test('el build de Pages carga recursos, autentica y conserva la ruta al recargar
   await expect(page).toHaveURL(/\/brazalete-mvp\/#\/demo$/)
   await expect(page.getByText('Elena Martínez')).toBeVisible()
 
+  const veepooSdkLoaded = await page.evaluate(async () => {
+    const base = new URL('/brazalete-mvp/', window.location.origin)
+    const queue = performance
+      .getEntriesByType('resource')
+      .map((entry) => entry.name)
+      .filter((url) => url.endsWith('.js'))
+    const visited = new Set<string>()
+    while (queue.length) {
+      const url = queue.shift()!
+      if (visited.has(url)) continue
+      visited.add(url)
+      const source = await fetch(url).then((response) => response.text())
+      if (source.length > 150_000 && source.includes('successfulVerification')) {
+        await import(/* @vite-ignore */ url)
+        return true
+      }
+      for (const match of source.matchAll(/["']((?:\.\/|assets\/)[^"']+\.js)["']/g)) {
+        const dependency = new URL(match[1], match[1].startsWith('assets/') ? base : url).href
+        if (!visited.has(dependency)) queue.push(dependency)
+      }
+    }
+    return false
+  })
+  expect(veepooSdkLoaded).toBe(true)
+
   await page.getByRole('link', { name: 'Configuración', exact: true }).click()
   const templateLink = page.getByRole('link', { name: 'Descargar plantilla' })
   await expect(templateLink).toHaveAttribute(

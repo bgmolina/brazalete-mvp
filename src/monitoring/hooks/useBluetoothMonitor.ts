@@ -3,6 +3,7 @@ import { useBluetooth, useConnection } from '@beacio/react'
 import { useSettingsStore } from '@shared/store/settingsStore'
 import { realEngine } from '@shared/store/monitoringStore'
 import { subscribeDeviceSensors, describeBluetoothError } from '@monitoring/services/bleSensors'
+import { VEEPOO_SERVICE } from '@monitoring/services/veepooTransport'
 
 const RECONNECT = { maxAttempts: 3, initialDelay: 1000, backoffMultiplier: 2 }
 export function useBluetoothMonitor() {
@@ -15,6 +16,7 @@ export function useBluetoothMonitor() {
           'heart_rate',
           'battery_service',
           'device_information',
+          VEEPOO_SERVICE,
           profile?.acceleration?.service,
           profile?.steps?.service,
         ].filter((s): s is string => !!s),
@@ -29,6 +31,8 @@ export function useBluetoothMonitor() {
   })
   const intentional = useRef(false)
   const lastDevice = useRef(device)
+  const activeCleanup = useRef<(() => Promise<void>) | null>(null)
+  const heartRateControl = useRef<null | { requestMeasurement(): void }>(null)
   useEffect(() => {
     lastDevice.current = device
   }, [device])
@@ -38,15 +42,25 @@ export function useBluetoothMonitor() {
         !!profile?.acceleration?.calibrated && !!profile.acceleration.includesGravity
       realEngine.attach(device.id, device.name || 'Pulsera Bluetooth', calibrated)
       const abort = new AbortController()
-      let dispose: (() => void) | undefined
-      void subscribeDeviceSensors(device, profile, realEngine, abort.signal).then((fn) => {
-        if (abort.signal.aborted) fn()
-        else dispose = fn
+      let cleaned = false
+      const subscription = subscribeDeviceSensors(device, profile, realEngine, abort.signal, {
+        onHeartRateControl: (control) => {
+          heartRateControl.current = control
+        },
       })
-      return () => {
+      const cleanup = async () => {
+        if (cleaned) return
+        cleaned = true
         abort.abort()
-        dispose?.()
+        heartRateControl.current = null
+        const dispose = await subscription.catch(() => null)
+        if (dispose) await dispose()
         realEngine.flush()
+      }
+      activeCleanup.current = cleanup
+      return () => {
+        if (activeCleanup.current === cleanup) activeCleanup.current = null
+        void cleanup()
       }
     }
   }, [isConnected, device, profile])
@@ -62,9 +76,12 @@ export function useBluetoothMonitor() {
   }, [error, bluetoothError])
   useEffect(
     () => () => {
-      lastDevice.current?.disconnect()
-      realEngine.connection('disconnected')
-      realEngine.flush()
+      const cleanup = activeCleanup.current?.() ?? Promise.resolve()
+      void cleanup.finally(() => {
+        lastDevice.current?.disconnect()
+        realEngine.connection('disconnected')
+        realEngine.flush()
+      })
     },
     [],
   )
@@ -75,13 +92,19 @@ export function useBluetoothMonitor() {
   }, [connect])
   const handleDisconnect = useCallback(() => {
     intentional.current = true
-    disconnect()
-    realEngine.connection('disconnected')
-    realEngine.flush()
+    void (activeCleanup.current?.() ?? Promise.resolve()).then(() => {
+      disconnect()
+      realEngine.connection('disconnected')
+      realEngine.flush()
+    })
   }, [disconnect])
+  const measureHeartRate = useCallback(() => {
+    heartRateControl.current?.requestMeasurement()
+  }, [])
   return {
     isSupported: isSupported && window.isSecureContext,
     connect: handleConnect,
     disconnect: handleDisconnect,
+    measureHeartRate,
   }
 }

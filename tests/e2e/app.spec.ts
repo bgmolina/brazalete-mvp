@@ -18,6 +18,30 @@ const mockBle = async (page: Page) => {
     fixture.installTestDevice()
   })
 }
+const mockVeepoo = async (page: Page) => {
+  await page.evaluate(async () => {
+    const path = '/tests/e2e/ble-fixture.ts'
+    const fixture = (await import(/* @vite-ignore */ path)) as typeof import('./ble-fixture')
+    fixture.installVeepooTestDevice()
+  })
+}
+const loadRealVeepooSdk = async (page: Page) =>
+  page.evaluate(async () => {
+    const path = '/src/monitoring/services/veepooSession.ts'
+    const session = (await import(/* @vite-ignore */ path)) as {
+      loadVeepooSdk: () => Promise<{
+        init?: unknown
+        veepooBle?: { veepooWeiXinSDKConnectionDevice?: unknown }
+        veepooFeature?: { veepooSendHeartRateTestSwitchManager?: unknown }
+      }>
+    }
+    const sdk = await session.loadVeepooSdk()
+    return [
+      typeof sdk.init,
+      typeof sdk.veepooBle?.veepooWeiXinSDKConnectionDevice,
+      typeof sdk.veepooFeature?.veepooSendHeartRateTestSwitchManager,
+    ]
+  })
 test('selección de historial por teclado y navegación móvil con foco contenido', async ({
   page,
 }) => {
@@ -89,7 +113,7 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await mockBle(page)
   await page.getByRole('button', { name: 'En vivo', exact: true }).click()
   await page.getByRole('button', { name: 'Conectar pulsera', exact: true }).click()
-  await expect(page.getByText('Dispositivo conectado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
   await expect(page.getByText('Batería: 100%', { exact: false })).toBeVisible()
   await page.evaluate(() => window.__bleTest.emitHeart(77))
   await expect(page.locator('.pulse-metric .metric-value')).toContainText('77')
@@ -97,7 +121,7 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await page.evaluate(() => window.__bleTest.emitHeart(0, false))
   await expect(page.getByRole('button', { name: /Lectura de 0 BPM/ })).toBeVisible()
   await page.getByRole('link', { name: 'Vista general' }).click()
-  await expect(page.getByText('Dispositivo conectado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
   await page.reload()
   await expect(page.getByText('Esperando una lectura')).toBeVisible()
   await expect(page.getByRole('button', { name: /Lectura de 0 BPM/ })).toBeVisible()
@@ -107,10 +131,10 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await mockBle(page)
   await page.getByRole('button', { name: 'En vivo', exact: true }).click()
   await page.getByRole('button', { name: 'Conectar pulsera', exact: true }).click()
-  await expect(page.getByText('Dispositivo conectado', { exact: true })).toBeVisible()
+  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
   await page.evaluate(() => window.__bleTest.disconnect())
   await expect(page.getByRole('button', { name: /Conexión interrumpida/ })).toBeVisible()
-  await expect(page.getByText('Dispositivo conectado', { exact: true })).toBeVisible({
+  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible({
     timeout: 5000,
   })
   await page.getByRole('button', { name: 'Demo', exact: true }).click()
@@ -119,6 +143,32 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await page.getByRole('button', { name: 'En vivo', exact: true }).click()
   await expect(page.getByText('Sin conexión', { exact: true })).toBeVisible()
   await expect(page.locator('.pulse-metric .metric-value')).not.toContainText('200')
+})
+
+test('H7 simulado: autentica, inicia Veepoo, recibe batería y detiene al desconectar', async ({
+  page,
+}) => {
+  await login(page)
+  expect(await loadRealVeepooSdk(page)).toEqual(['function', 'function', 'function'])
+  await mockVeepoo(page)
+  await page.getByRole('button', { name: 'En vivo', exact: true }).click()
+  await page.getByRole('button', { name: 'Conectar pulsera', exact: true }).click()
+  await expect(page.getByText('Autenticando H7…', { exact: true })).toBeVisible()
+  await page.evaluate(() => window.__bleTest.authenticate?.())
+  await expect(page.getByText('Protocolo H7/Veepoo', { exact: false })).toBeVisible()
+  await expect(page.getByText('Batería: 68%', { exact: false })).toBeVisible()
+  await page.evaluate(() => window.__bleTest.emitHeart(84))
+  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
+  await expect(page.locator('.pulse-metric .metric-value')).toContainText('84')
+  await expect(page.getByText('1 · Brazalete firme', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Actualizar BPM', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.__bleTest.measurementRequests?.())).toBe(2)
+  await expect(page.getByRole('button', { name: 'Midiendo…', exact: true })).toBeDisabled()
+  await page.evaluate(() => window.__bleTest.emitHeart(87))
+  await expect(page.locator('.pulse-metric .metric-value')).toContainText('87')
+  await page.getByRole('button', { name: 'Desconectar', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => window.__bleTest.stopped?.())).toBe(true)
+  await expect(page.getByText('Sin conexión', { exact: true })).toBeVisible()
 })
 test('ficha, importación de perfil, retención al reabrir y limpieza limitada', async ({ page }) => {
   await login(page)

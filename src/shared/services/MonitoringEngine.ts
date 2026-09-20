@@ -3,12 +3,14 @@ import {
   type AccelPoint,
   type CapabilityStatus,
   type ConnectionStatus,
+  type DeviceProtocol,
   type DeviceHistory,
   type EventType,
   type HeartPoint,
   type MinuteSummary,
   type Mode,
   type MonitoringSnapshot,
+  type PreparationPhase,
   type SensorKind,
   type SensorReading,
 } from '@shared/types/monitoring'
@@ -47,6 +49,8 @@ export class MonitoringEngine {
       deviceId: null,
       deviceName: '',
       connection: 'disconnected',
+      protocol: null,
+      preparation: 'idle',
       capabilities: { ...EMPTY_CAPABILITIES },
       heartRate: null,
       contact: null,
@@ -113,6 +117,8 @@ export class MonitoringEngine {
     this.value.deviceId = deviceId
     this.value.deviceName = deviceName
     this.value.connection = 'connected'
+    this.value.protocol = null
+    this.value.preparation = 'discovering'
     this.value.error = null
     this.value.heartRate = null
     this.value.lastHeartAt = null
@@ -135,11 +141,28 @@ export class MonitoringEngine {
       this.publish()
     }
   }
+  protocol(protocol: DeviceProtocol, preparation: PreparationPhase = 'discovering') {
+    this.value.protocol = protocol
+    this.value.preparation = preparation
+    this.publish()
+  }
+  preparation(preparation: PreparationPhase) {
+    if (this.value.preparation !== preparation) {
+      this.value.preparation = preparation
+      this.publish()
+    }
+  }
+  contactStatus(contact: boolean | null) {
+    this.value.contact = contact
+    this.publish()
+  }
   connection(status: ConnectionStatus, error: string | null = null, unexpected = false) {
     const previous = this.value.connection
     this.value.connection = status
     this.value.error = error
     if (status !== 'connected') {
+      this.value.protocol = null
+      this.value.preparation = 'idle'
       this.detector.reset()
       this.recentMotion = []
       this.stepCounter.resetBaseline()

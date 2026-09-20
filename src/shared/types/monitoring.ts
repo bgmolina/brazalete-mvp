@@ -1,4 +1,12 @@
 export type Mode = 'demo' | 'real'
+export type DeviceProtocol = 'standard-heart-rate' | 'veepoo'
+export type PreparationPhase =
+  | 'idle'
+  | 'discovering'
+  | 'authenticating'
+  | 'starting-measurement'
+  | 'ready-to-measure'
+  | 'receiving'
 export type SensorKind = 'heartRate' | 'acceleration' | 'steps' | 'battery'
 export type CapabilityStatus = 'available' | 'unsupported' | 'waiting' | 'error'
 export type DeviceCapabilities = Record<SensorKind, CapabilityStatus>
@@ -66,6 +74,8 @@ export interface MonitoringSnapshot {
   deviceId: string | null
   deviceName: string
   connection: ConnectionStatus
+  protocol: DeviceProtocol | null
+  preparation: PreparationPhase
   capabilities: DeviceCapabilities
   heartRate: number | null
   contact: boolean | null

@@ -6,9 +6,9 @@ Este frontend se conecta directamente desde Chrome/Edge de escritorio a un perif
 
 | Capacidad           | Implementación                                                                                                    |
 | ------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Frecuencia cardíaca | Heart Rate Service `0000180d-0000-1000-8000-00805f9b34fb`, notificaciones `00002a37-0000-1000-8000-00805f9b34fb`. |
+| Frecuencia cardíaca | Heart Rate estándar `0x180D/0x2A37`; como alternativa, sesión propietaria H7/Veepoo autenticada.                          |
 | Contacto            | Flags del paquete Heart Rate; puede ser no informado.                                                             |
-| Batería             | Lectura opcional Battery Service `0x180F`, Battery Level `0x2A19` al conectar.                                    |
+| Batería             | Battery Service estándar `0x180F/0x2A19` o evento Veepoo `type: 2`.                                                |
 | Identidad           | ID y nombre expuestos por el navegador, sin dirección MAC.                                                        |
 | Acelerómetro        | Perfil JSON adicional; tres campos numéricos en una característica notificable.                                   |
 | Pasos               | Perfil JSON adicional; un campo con contador acumulado entero no negativo.                                        |
@@ -45,13 +45,25 @@ Para aceleración, se definen `x`, `y` y `z`. El resultado debe estar en **g**; 
 
 Los paquetes deben contener todos los bytes requeridos por los campos. Se rechazan valores no finitos, paquetes cortos y pasos fraccionarios/negativos. El decodificador opera sobre el `DataView` recibido, incluyendo su offset real.
 
-## Protocolos que requieren otro adaptador
+## Sesión H7/Veepoo integrada
+
+Cuando Heart Rate estándar no existe, el runtime busca el servicio propietario `F0080001-0451-4000-B000-000000000000`. Si está presente, carga bajo demanda el SDK oficial Veepoo 1.1.23, abre sus características de notificación/escritura, autentica con `0000`, solicita batería e inicia la medición manual de pulso. La interfaz muestra las fases de descubrimiento, autenticación, inicio y recepción.
+
+Los eventos de pulso Veepoo `type: 51` sólo se aceptan entre 30 y 250 BPM. `notWear` se muestra como falta de contacto y `deviceBusy` como dispositivo ocupado; ninguno se convierte en 0 BPM ni crea una alerta clínica falsa. Al desconectar, cambiar a demo, cerrar sesión o desmontar el runtime, se solicita detener la medición antes de cancelar notificaciones y cortar GATT.
+
+El transporte adapta enumeración, notificaciones, escrituras con/sin respuesta, fragmentos limitados por MTU, estado de conexión y el pequeño almacenamiento local que espera el SDK. Resuelve primero los UUID oficiales y, para variantes de firmware dentro del servicio principal, puede asociar los canales por sus capacidades GATT verificadas (`notify`/`indicate` y `write`/`writeWithoutResponse`). Todo ocurre dentro del navegador; no se envían paquetes ni identificadores a un backend. La procedencia y licencia de la copia fijada están en `src/vendor/veepoo/UPSTREAM.md` y `LICENSE`.
+
+La autenticación reutiliza la conexión Web Bluetooth ya abierta: resuelve los canales `F0080002`/`F0080003`, activa las notificaciones, registra el receptor global y recién entonces envía la clave predeterminada `0000`. La confirmación se obtiene de `VPDeviceAck`; `VPDevicepassword` contiene la clave y no representa el resultado. Si no llega la primera confirmación se realiza un único reintento. Un timeout ya no se interpreta automáticamente como que otra aplicación está usando el reloj.
+
+Un H7 ya emparejado por el sistema todavía debe seleccionarse mediante un clic en Chrome/Edge. Ese gesto concede el acceso al origen web; el emparejamiento por sí solo no inicia el protocolo Veepoo. Acelerómetro y pasos del H7 no se deducen de datos no documentados y se muestran como no compatibles.
+
+## Otros protocolos que requieren un adaptador
 
 El perfil declarativo no hace autenticación, cifrado, escritura de comandos, fragmentación/reensamblado ni selección de tipos dentro de un protocolo multiplexado. Tampoco extrae series de múltiples muestras contenidas en un único paquete. Esos dispositivos requieren implementar un adaptador específico en la capa de servicios.
 
 `BleDeviceAdapter` y `getAdapters` están en `src/shared/services/bleProfiles.ts`. El ciclo de suscripción/cancelación está centralizado en `src/monitoring/services/bleSensors.ts`; el motor recibe únicamente valores normalizados. Las operaciones GATT iniciales se preparan secuencialmente para evitar colisiones de operaciones en periféricos limitados.
 
-Los relojes Veepoo del sistema original usaban su SDK Android y una autenticación propia. Este MVP no implementa ese protocolo. Su compatibilidad directa se considera **no confirmada** hasta comprobar los servicios reales y, si corresponde, desarrollar el adaptador.
+El H7/Veepoo es la excepción ya integrada. Otros relojes propietarios continúan necesitando documentación y un adaptador específico; un perfil JSON no sustituye su autenticación o secuencia de comandos.
 
 ## Calidad temporal para caída experimental
 

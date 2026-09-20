@@ -58,6 +58,14 @@ const connectionLabels = {
   reconnecting: 'Reconectando…',
   error: 'Error de conexión',
 }
+const preparationLabels = {
+  idle: 'Dispositivo conectado',
+  discovering: 'Reconociendo sensores…',
+  authenticating: 'Autenticando H7…',
+  'starting-measurement': 'Iniciando medición…',
+  'ready-to-measure': 'H7 listo para medir',
+  receiving: 'Recibiendo datos',
+}
 function ChartLoading() {
   return <Skeleton className="h-56 w-full rounded-lg" />
 }
@@ -71,6 +79,8 @@ export function DashboardPage() {
   const loading = ['requesting', 'connecting', 'reconnecting'].includes(s.connection)
   const motionAvailable = s.capabilities.acceleration === 'available'
   const noContact = s.contact === false
+  const connectionText =
+    connected && !demo ? preparationLabels[s.preparation] : connectionLabels[s.connection]
   const heartLabel = vm.stale
     ? 'Lectura desactualizada'
     : noContact
@@ -80,6 +90,19 @@ export function DashboardPage() {
         : s.heartRate === null
           ? 'Esperando una lectura'
           : 'Última lectura recibida'
+  const h7Ready =
+    connected &&
+    s.protocol === 'veepoo' &&
+    (s.preparation === 'receiving' || s.preparation === 'ready-to-measure')
+  const h7Measuring =
+    connected && s.protocol === 'veepoo' && s.preparation === 'starting-measurement'
+  const measurementAdvice = noContact
+    ? 'Ajustá el brazalete para que el sensor apoye sobre la piel.'
+    : vm.stale
+      ? 'La lectura perdió vigencia. Mantené el brazo quieto y actualizala.'
+      : s.heartRate !== null
+        ? `Última lectura: ${s.heartRate} BPM. Podés actualizarla cuando lo necesites.`
+        : 'Usá el brazalete firme, apoyá el brazo y evitá moverte durante 15–20 segundos.'
   return (
     <div className="dashboard-page page-enter">
       <div className="page-heading">
@@ -124,6 +147,8 @@ export function DashboardPage() {
             <p>
               {vm.person.age ? `${vm.person.age} años · ` : ''}
               {s.deviceName || 'Sin pulsera vinculada'}
+              {s.protocol === 'veepoo' ? ' · Protocolo H7/Veepoo' : ''}
+              {s.protocol === 'standard-heart-rate' ? ' · Pulso BLE estándar' : ''}
               {demo ? ' · Perfil de ejemplo' : ''}
             </p>
           </div>
@@ -131,7 +156,7 @@ export function DashboardPage() {
         <div className="person-actions">
           <span className={`connection-label ${connected && !s.paused ? 'connected' : ''}`}>
             <span className="status-dot" />
-            {s.paused ? 'Simulación pausada' : connectionLabels[s.connection]}
+            {s.paused ? 'Simulación pausada' : connectionText}
           </span>
           {!demo ? (
             <Button
@@ -181,10 +206,71 @@ export function DashboardPage() {
               </Button>
             </div>
             <span className="onboarding-footnote">
-              El sensor debe exponer servicios BLE compatibles. No todas las pulseras lo hacen.
+              Compatible con pulso BLE estándar y brazaletes H7 que utilizan Veepoo Health.
             </span>
           </div>
           <CareIllustration variant="device" />
+        </section>
+      ) : null}
+      {!demo && connected ? (
+        <section
+          className={`measurement-guide ${h7Measuring ? 'is-measuring' : ''}`}
+          aria-label="Medición de frecuencia cardíaca"
+        >
+          <div className="measurement-orbit" aria-hidden="true">
+            <span />
+            <HeartPulse size={24} />
+          </div>
+          <div className="measurement-copy">
+            <span className="eyebrow">MEDICIÓN GUIADA</span>
+            <h2>
+              {s.protocol === 'veepoo'
+                ? h7Measuring
+                  ? 'Midiendo tu frecuencia…'
+                  : 'Tomá una lectura cuando estés listo.'
+                : 'La frecuencia se recibe automáticamente.'}
+            </h2>
+            <p>
+              {s.protocol === 'veepoo'
+                ? measurementAdvice
+                : 'El sensor cardíaco estándar envía lecturas continuas mientras permanece conectado.'}
+            </p>
+            {s.protocol === 'veepoo' ? (
+              <div className="measurement-steps" aria-label="Recomendaciones para medir">
+                <span>1 · Brazalete firme</span>
+                <span>2 · Brazo apoyado</span>
+                <span>3 · Sin movimiento</span>
+              </div>
+            ) : null}
+          </div>
+          <div className="measurement-action">
+            {s.protocol === 'veepoo' ? (
+              <Button
+                size="lg"
+                disabled={!h7Ready || h7Measuring}
+                onClick={a.measureHeartRate}
+                aria-describedby="measurement-action-hint"
+              >
+                {h7Measuring ? <Activity className="measurement-spin" /> : <HeartPulse />}
+                {h7Measuring
+                  ? 'Midiendo…'
+                  : s.heartRate === null || vm.stale || noContact
+                    ? 'Medir frecuencia'
+                    : 'Actualizar BPM'}
+              </Button>
+            ) : (
+              <span className="automatic-measurement">
+                <Radio size={15} /> Medición automática activa
+              </span>
+            )}
+            <small id="measurement-action-hint">
+              {s.protocol === 'veepoo'
+                ? h7Measuring
+                  ? 'Esperando una lectura válida del H7.'
+                  : 'Envía una nueva solicitud directamente al H7.'
+                : 'No requiere una acción manual.'}
+            </small>
+          </div>
         </section>
       ) : null}
       <section className="metric-grid" aria-label="Métricas del monitoreo">

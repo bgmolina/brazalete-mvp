@@ -2,7 +2,7 @@
 
 ## Qué acreditan las pruebas automáticas
 
-Las pruebas unitarias y de componentes verifican la lógica y los estados de la interfaz. La integración BLE utiliza `@beacio/core/testing`: selección, conexión, recepción, desconexión, tres reintentos y cancelación de suscripciones bajo React StrictMode. Los E2E recorren la aplicación en Chromium usando el mismo simulador para el caso de datos reales.
+Las pruebas unitarias y de componentes verifican la lógica y los estados de la interfaz. La integración BLE utiliza `@beacio/core/testing`: selección de protocolo estándar/Veepoo, autenticación H7, batería, recepción, desconexión, tres reintentos y cancelación de suscripciones bajo React StrictMode. Los E2E recorren ambos protocolos simulados en Chromium.
 
 El mock publicado en Beacio 2.1.1 emite notificaciones con un `event.target` sintético que no conserva la identidad de la característica; el núcleo del SDK exige la identidad que garantiza el navegador. `tests/helpers/mockNotifications.ts` normaliza únicamente ese comportamiento del mock. No modifica producción ni evita ejecutar el decodificador, motor o flujo GATT del SDK.
 
@@ -24,7 +24,7 @@ Completar para cada modelo antes de declarar compatibilidad:
 
 1. Abrir `localhost:5173`, ingresar y pasar a En vivo. Verificar que no aparezcan valores ficticios ni datos personales de la demo.
 2. Cancelar el selector: se debe volver al estado sin conexión, permitiendo intentarlo nuevamente.
-3. Elegir la pulsera. Verificar nombre/ID del navegador y sensores independientes. Si falta Heart Rate estándar, confirmar “No compatible”.
+3. Elegir la pulsera. Verificar nombre/ID del navegador y sensores independientes. Si falta Heart Rate estándar, debe intentarse Veepoo antes de mostrar “No compatible”.
 4. Comparar las lecturas cardíacas con las publicadas por el propio dispositivo; registrar latencia, contacto informado y frecuencia observada. Esto no acredita precisión médica.
 5. Navegar entre panel, alertas y configuración sin perder la conexión. Editar la ficha y comprobar que se mantiene el flujo.
 6. Interrumpir la comunicación de forma controlada. Verificar evento de desconexión, valor desactualizado y hasta tres reconexiones con espera progresiva. La pérdida de señal no debe convertirse en cero ni en caída.
@@ -34,6 +34,19 @@ Completar para cada modelo antes de declarar compatibilidad:
 10. Recargar: se deben conservar los agregados y eventos vigentes, pero no las muestras detalladas ni un BPM presentado como actual. Volver a conectar manualmente.
 11. Pasar a demo, desconectar y cerrar sesión, por separado. Verificar que cesan las suscripciones reales en cada caso.
 12. Probar limpieza cancelada/confirmada y comprobar que no se alteran ficha ni perfil. No cambiar el reloj del sistema durante un monitoreo de una persona; ensayar retención con datos ficticios o tests automatizados.
+
+## Recorrido específico H7/Veepoo
+
+1. Confirmar que el modelo funciona con Veepoo Health, anotar firmware y cerrar por completo esa aplicación y cualquier otra que mantenga el H7 ocupado.
+2. Aunque figure emparejado en macOS, pulsar **Conectar pulsera** y elegir H7 en el diálogo protegido de Chrome/Edge.
+3. Comprobar la secuencia visible “Reconociendo sensores” → “Autenticando H7” → “Iniciando medición” → “Recibiendo datos”, el rótulo “Protocolo H7/Veepoo” y la batería.
+4. Esperar el primer BPM y comparar varias lecturas con la pantalla del reloj, registrando latencia y diferencias sin atribuir precisión médica.
+5. Aflojar o retirar el brazalete de forma segura: debe informarse falta de contacto, sin 0 BPM ni evento clínico. Si el reloj está midiendo otra función, debe aparecer el error de dispositivo ocupado.
+6. Interrumpir el enlace y comprobar reconexión. Repetir tres conexiones manuales y verificar que cada una autentique/inicie una vez, sin lecturas o listeners duplicados.
+7. Pulsar Desconectar, pasar a demo y cerrar sesión en ensayos separados. Confirmar que la medición se detiene en el reloj y que no llegan más muestras.
+8. Revisar consola y estado GATT sólo durante el ensayo. No conservar identificadores ni volcados de paquetes sensibles.
+
+La validación física requiere seleccionar el dispositivo en un diálogo del navegador y observar el firmware real; no puede sustituirse por el mock automatizado. Hasta completar y registrar este recorrido, “soportado” describe la implementación del protocolo, no una certificación de ese ejemplar o firmware.
 
 ## Revisión visual y accesibilidad
 

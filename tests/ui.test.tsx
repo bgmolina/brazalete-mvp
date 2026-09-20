@@ -26,6 +26,7 @@ const actions: MonitoringActions = {
   supported: true,
   connect: vi.fn(),
   disconnect: vi.fn(),
+  measureHeartRate: vi.fn(),
   scenario: 'rest',
   simulate: vi.fn(),
   togglePause: vi.fn(),
@@ -43,6 +44,7 @@ function wrap(children: ReactNode, mode: 'real' | 'demo' = 'real') {
   )
 }
 beforeEach(() => {
+  vi.clearAllMocks()
   localStorage.clear()
   sessionStorage.clear()
   useAuthStore.setState({ authenticated: false })
@@ -118,6 +120,23 @@ describe('Acceso y rutas', () => {
   })
 })
 describe('Panel, configuración y eventos', () => {
+  it('ofrece una acción guiada para volver a medir el pulso del H7', async () => {
+    realEngine.attach('h7-test', 'H7')
+    realEngine.protocol('veepoo', 'receiving')
+    realEngine.ingest({
+      deviceId: 'h7-test',
+      source: 'real',
+      timestamp: Date.now(),
+      kind: 'heartRate',
+      value: 82,
+      contact: true,
+    })
+    realEngine.publish()
+    wrap(<DashboardPage />)
+    expect(screen.getByText('1 · Brazalete firme')).toBeVisible()
+    await userEvent.click(screen.getByRole('button', { name: 'Actualizar BPM' }))
+    expect(actions.measureHeartRate).toHaveBeenCalledOnce()
+  })
   it('no rellena sensores parciales con datos ficticios', async () => {
     realEngine.attach('test', 'Sensor parcial')
     realEngine.capability('heartRate', 'available')

@@ -164,6 +164,13 @@ export function SettingsPage() {
             </p>
           </div>
           <div>
+            <h3>H7 con Veepoo Health</h3>
+            <p>
+              Se autentica localmente con la clave predeterminada 0000 y se inicia la medición
+              continua desde la página. No requiere la aplicación móvil como puente.
+            </p>
+          </div>
+          <div>
             <h3>Movimiento y pasos</h3>
             <p>
               Necesitan un perfil GATT conocido. Si la pulsera utiliza autenticación o comandos
