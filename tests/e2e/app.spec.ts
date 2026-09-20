@@ -145,7 +145,7 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await expect(page.locator('.pulse-metric .metric-value')).not.toContainText('200')
 })
 
-test('H7 simulado: autentica, inicia Veepoo, recibe batería y detiene al desconectar', async ({
+test('H7 simulado: autentica y completa tres mediciones manuales sin duplicar comandos', async ({
   page,
 }) => {
   await login(page)
@@ -157,17 +157,32 @@ test('H7 simulado: autentica, inicia Veepoo, recibe batería y detiene al descon
   await page.evaluate(() => window.__bleTest.authenticate?.())
   await expect(page.getByText('Protocolo H7/Veepoo', { exact: false })).toBeVisible()
   await expect(page.getByText('Batería: 68%', { exact: false })).toBeVisible()
-  await page.evaluate(() => window.__bleTest.emitHeart(84))
-  await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
-  await expect(page.locator('.pulse-metric .metric-value')).toContainText('84')
+  await expect(page.getByText('H7 listo para medir', { exact: true })).toBeVisible()
+  await expect.poll(() => page.evaluate(() => window.__bleTest.measurementRequests?.())).toBe(0)
   await expect(page.getByText('1 · Brazalete firme', { exact: true })).toBeVisible()
-  await page.getByRole('button', { name: 'Actualizar BPM', exact: true }).click()
-  await expect.poll(() => page.evaluate(() => window.__bleTest.measurementRequests?.())).toBe(2)
-  await expect(page.getByRole('button', { name: 'Midiendo…', exact: true })).toBeDisabled()
-  await page.evaluate(() => window.__bleTest.emitHeart(87))
-  await expect(page.locator('.pulse-metric .metric-value')).toContainText('87')
+
+  for (const [index, bpm] of [84, 87, 90].entries()) {
+    await page.getByRole('button', { name: 'Medir frecuencia', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.__bleTest.measurementRequests?.())).toBe(
+      index + 1,
+    )
+    await expect(page.getByText('Preparando el sensor…', { exact: true })).toBeVisible()
+    await expect(page.getByText(/continuará hasta que la detengas/)).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Detener medición', exact: true })).toBeEnabled()
+    await page.evaluate((value) => window.__bleTest.emitHeart(value), bpm)
+    await expect(page.getByText('Midiendo en vivo', { exact: true })).toBeVisible()
+    await expect(page.locator('.pulse-metric .metric-value')).toContainText(String(bpm))
+    await page.getByRole('button', { name: 'Detener medición', exact: true }).click()
+    await expect.poll(() => page.evaluate(() => window.__bleTest.measurementStops?.())).toBe(
+      index + 1,
+    )
+    await expect(page.getByRole('button', { name: 'Medir frecuencia', exact: true })).toBeEnabled({
+      timeout: 3000,
+    })
+  }
   await page.getByRole('button', { name: 'Desconectar', exact: true }).click()
   await expect.poll(() => page.evaluate(() => window.__bleTest.stopped?.())).toBe(true)
+  await expect.poll(() => page.evaluate(() => window.__bleTest.measurementStops?.())).toBe(3)
   await expect(page.getByText('Sin conexión', { exact: true })).toBeVisible()
 })
 test('ficha, importación de perfil, retención al reabrir y limpieza limitada', async ({ page }) => {

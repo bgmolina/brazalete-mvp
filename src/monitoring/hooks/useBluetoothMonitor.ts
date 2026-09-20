@@ -32,7 +32,7 @@ export function useBluetoothMonitor() {
   const intentional = useRef(false)
   const lastDevice = useRef(device)
   const activeCleanup = useRef<(() => Promise<void>) | null>(null)
-  const heartRateControl = useRef<null | { requestMeasurement(): void }>(null)
+  const heartRateControl = useRef<null | { toggleMeasurement(): void }>(null)
   useEffect(() => {
     lastDevice.current = device
   }, [device])
@@ -98,13 +98,13 @@ export function useBluetoothMonitor() {
       realEngine.flush()
     })
   }, [disconnect])
-  const measureHeartRate = useCallback(() => {
-    heartRateControl.current?.requestMeasurement()
+  const toggleHeartRateMeasurement = useCallback(() => {
+    heartRateControl.current?.toggleMeasurement()
   }, [])
   return {
     isSupported: isSupported && window.isSecureContext,
     connect: handleConnect,
     disconnect: handleDisconnect,
-    measureHeartRate,
+    toggleHeartRateMeasurement,
   }
 }

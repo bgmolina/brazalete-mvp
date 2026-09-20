@@ -313,7 +313,7 @@ describe('Protocolo Veepoo H7', () => {
     )
     expect(engine.snapshot()).toMatchObject({
       protocol: 'veepoo',
-      preparation: 'starting-measurement',
+      preparation: 'ready-to-measure',
     })
     expect(transport.createBLEConnection).not.toHaveBeenCalled()
     await dispose()
@@ -448,24 +448,23 @@ describe('Protocolo Veepoo H7', () => {
     await transport.dispose()
   })
 
-  it('autentica, solicita batería, inicia el pulso y detiene antes de limpiar', async () => {
+  it('autentica y controla una medición manual sin duplicar comandos', async () => {
     const engine = makeEngine()
     const transport = fakeTransport()
     const { sdk, emit, heartSwitches } = fakeSdk()
     const abort = new AbortController()
-    let heartRateControl: { requestMeasurement(): void } | null = null
+    let heartRateControl: { toggleMeasurement(): void } | null = null
     const dispose = await subscribeVeepooSensors(device, engine, abort.signal, {
       loadSdk: async () => sdk,
       createTransport: () => transport,
       authenticationTimeoutMs: 100,
-      measurementTimeoutMs: 1000,
       onHeartRateControl: (control) => {
         heartRateControl = control
       },
     })
     expect(engine.snapshot()).toMatchObject({
       protocol: 'veepoo',
-      preparation: 'starting-measurement',
+      preparation: 'ready-to-measure',
     })
     expect(sdk.veepooFeature.veepooReadElectricQuantityManager).toHaveBeenCalledOnce()
     expect(sdk.init).toHaveBeenCalledWith({
@@ -476,9 +475,11 @@ describe('Protocolo Veepoo H7', () => {
       }),
     })
     expect(sdk.veepooBle.veepooWeiXinSDKConnectionDevice).not.toHaveBeenCalled()
+    expect(heartSwitches).toEqual([])
+    const control = heartRateControl as { toggleMeasurement(): void } | null
+    control?.toggleMeasurement()
     expect(heartSwitches).toEqual([true])
-    ;(heartRateControl as { requestMeasurement(): void } | null)?.requestMeasurement()
-    expect(heartSwitches).toEqual([true, true])
+    expect(engine.snapshot().preparation).toBe('starting-measurement')
     emit({ type: 2, content: { VPDeviceElectricPercent: 64 } })
     emit({ type: 51, content: { heartRate: 82, notWear: false, deviceBusy: false } })
     expect(engine.snapshot()).toMatchObject({
@@ -486,9 +487,12 @@ describe('Protocolo Veepoo H7', () => {
       heartRate: 82,
       preparation: 'receiving',
     })
+    control?.toggleMeasurement()
+    expect(heartSwitches).toEqual([true, false])
+    expect(engine.snapshot().preparation).toBe('stopping-measurement')
     await dispose()
     await dispose()
-    expect(heartSwitches).toEqual([true, true, false])
+    expect(heartSwitches).toEqual([true, false])
     expect(heartRateControl).toBeNull()
     expect(transport.dispose).toHaveBeenCalledOnce()
   })
@@ -515,24 +519,97 @@ describe('Protocolo Veepoo H7', () => {
     await dispose()
   })
 
-  it('vuelve a habilitar una medición manual si el H7 no entrega BPM', async () => {
+  it('continúa buscando BPM sin límite y permite detener manualmente durante la espera', async () => {
     vi.useFakeTimers()
     const engine = makeEngine()
     const transport = fakeTransport()
-    const { sdk } = fakeSdk()
+    const { sdk, heartSwitches } = fakeSdk()
+    let control: { toggleMeasurement(): void } | null = null
     const dispose = await subscribeVeepooSensors(device, engine, new AbortController().signal, {
       loadSdk: async () => sdk,
       createTransport: () => transport,
       authenticationTimeoutMs: 1_000,
-      measurementTimeoutMs: 500,
+      stopSettleMs: 10,
+      measurementCooldownMs: 10,
+      onHeartRateControl: (value) => {
+        control = value
+      },
     })
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
     expect(engine.snapshot().preparation).toBe('starting-measurement')
-    await vi.advanceTimersByTimeAsync(500)
-    expect(engine.snapshot()).toMatchObject({
-      preparation: 'ready-to-measure',
-      error: expect.stringContaining('volvé a medir'),
-    })
+    await vi.advanceTimersByTimeAsync(10 * 60_000)
+    expect(engine.snapshot().preparation).toBe('starting-measurement')
+    expect(heartSwitches).toEqual([true])
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
+    expect(heartSwitches).toEqual([true, false])
+    expect(engine.snapshot().preparation).toBe('stopping-measurement')
+    await vi.advanceTimersByTimeAsync(20)
+    expect(engine.snapshot().preparation).toBe('ready-to-measure')
     await dispose()
+    expect(heartSwitches).toEqual([true, false])
+  })
+
+  it('finaliza ocupado o sin contacto y permite reintentar después del cooldown', async () => {
+    vi.useFakeTimers()
+    const engine = makeEngine()
+    const { sdk, emit, heartSwitches } = fakeSdk()
+    let control: { toggleMeasurement(): void } | null = null
+    const dispose = await subscribeVeepooSensors(device, engine, new AbortController().signal, {
+      loadSdk: async () => sdk,
+      createTransport: fakeTransport,
+      authenticationTimeoutMs: 1_000,
+      measurementCooldownMs: 10,
+      onHeartRateControl: (value) => {
+        control = value
+      },
+    })
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
+    emit({ type: 51, content: { deviceBusy: true } })
+    expect(engine.snapshot()).toMatchObject({
+      preparation: 'measurement-cooldown',
+      error: expect.stringContaining('procesando otra función'),
+    })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(engine.snapshot().preparation).toBe('ready-to-measure')
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
+    emit({ type: 51, content: { notWear: true } })
+    expect(engine.snapshot()).toMatchObject({
+      preparation: 'measurement-cooldown',
+      contact: false,
+      error: expect.stringContaining('contacto con la piel'),
+    })
+    await vi.advanceTimersByTimeAsync(10)
+    expect(engine.snapshot().preparation).toBe('ready-to-measure')
+    expect(heartSwitches).toEqual([true, true])
+    await dispose()
+  })
+
+  it('mantiene una medición activa y recibe BPM después de varios minutos', async () => {
+    vi.useFakeTimers()
+    const engine = makeEngine()
+    const { sdk, emit, heartSwitches } = fakeSdk()
+    let control: { toggleMeasurement(): void } | null = null
+    const dispose = await subscribeVeepooSensors(device, engine, new AbortController().signal, {
+      loadSdk: async () => sdk,
+      createTransport: fakeTransport,
+      authenticationTimeoutMs: 1_000,
+      stopSettleMs: 10,
+      measurementCooldownMs: 10,
+      onHeartRateControl: (value) => {
+        control = value
+      },
+    })
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
+    emit({ type: 51, content: { heartRate: 75 } })
+    expect(engine.snapshot().preparation).toBe('receiving')
+    await vi.advanceTimersByTimeAsync(30 * 60_000)
+    expect(heartSwitches).toEqual([true])
+    expect(engine.snapshot().preparation).toBe('receiving')
+    emit({ type: 51, content: { heartRate: 78 } })
+    expect(engine.snapshot().heartRate).toBe(78)
+    await dispose()
+    expect(heartSwitches).toEqual([true, false])
   })
 
   it('selecciona Veepoo cuando el H7 no expone Heart Rate estándar', async () => {
@@ -540,12 +617,18 @@ describe('Protocolo Veepoo H7', () => {
     const { sdk, emit, heartSwitches } = fakeSdk()
     setVeepooSdkLoaderForTests(async () => sdk)
     const abort = new AbortController()
-    const cleanup = await subscribeDeviceSensors(device, null, engine, abort.signal)
+    let control: { toggleMeasurement(): void } | null = null
+    const cleanup = await subscribeDeviceSensors(device, null, engine, abort.signal, {
+      onHeartRateControl: (value) => {
+        control = value
+      },
+    })
     expect(engine.snapshot()).toMatchObject({
       protocol: 'veepoo',
-      preparation: 'starting-measurement',
+      preparation: 'ready-to-measure',
       capabilities: { acceleration: 'unsupported', steps: 'unsupported' },
     })
+    ;(control as { toggleMeasurement(): void } | null)?.toggleMeasurement()
     emit({ type: 51, content: { heartRate: 79 } })
     expect(engine.snapshot().heartRate).toBe(79)
     await cleanup()
@@ -666,15 +749,17 @@ describe('Protocolo Veepoo H7', () => {
   it('filtra paquetes inválidos, falta de uso y dispositivo ocupado sin crear 0 BPM', () => {
     const engine = makeEngine()
     engine.protocol('veepoo')
-    expect(processVeepooHeartEvent(undefined, 'h7-test', engine)).toBe(false)
-    expect(processVeepooHeartEvent({ heartRate: 0 }, 'h7-test', engine)).toBe(false)
-    expect(processVeepooHeartEvent({ heartRate: 251 }, 'h7-test', engine)).toBe(false)
-    expect(processVeepooHeartEvent({ notWear: true, heartRate: 0 }, 'h7-test', engine)).toBe(false)
+    expect(processVeepooHeartEvent(undefined, 'h7-test', engine)).toBe('invalid')
+    expect(processVeepooHeartEvent({ heartRate: 0 }, 'h7-test', engine)).toBe('invalid')
+    expect(processVeepooHeartEvent({ heartRate: 251 }, 'h7-test', engine)).toBe('invalid')
+    expect(processVeepooHeartEvent({ notWear: true, heartRate: 0 }, 'h7-test', engine)).toBe(
+      'not-worn',
+    )
     expect(engine.snapshot()).toMatchObject({ heartRate: null, contact: false })
     expect(engine.snapshot().events).toHaveLength(0)
-    expect(processVeepooHeartEvent({ deviceBusy: true }, 'h7-test', engine)).toBe(false)
-    expect(engine.snapshot().error).toContain('ocupado')
-    expect(processVeepooHeartEvent({ heartRate: 30 }, 'h7-test', engine)).toBe(true)
+    expect(processVeepooHeartEvent({ deviceBusy: true }, 'h7-test', engine)).toBe('busy')
+    expect(engine.snapshot().error).toContain('procesando')
+    expect(processVeepooHeartEvent({ heartRate: 30 }, 'h7-test', engine)).toBe('valid')
     expect(engine.snapshot()).toMatchObject({ heartRate: 30, contact: true, error: null })
     expect(readVeepooBattery({ VPDeviceElectricPercent: 92 })).toBe(92)
     expect(readVeepooBattery({ VPDeviceElectricPercent: '92' })).toBeNull()

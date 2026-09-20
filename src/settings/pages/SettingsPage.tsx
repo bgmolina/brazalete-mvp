@@ -166,8 +166,8 @@ export function SettingsPage() {
           <div>
             <h3>H7 con Veepoo Health</h3>
             <p>
-              Se autentica localmente con la clave predeterminada 0000 y se inicia la medición
-              continua desde la página. No requiere la aplicación móvil como puente.
+              Se autentica localmente con la clave predeterminada 0000 y queda listo para iniciar y
+              detener mediciones desde la página. No requiere la aplicación móvil como puente.
             </p>
           </div>
           <div>

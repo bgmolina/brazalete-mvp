@@ -8,7 +8,8 @@ import {
 
 const AUTH_TIMEOUT_MS = 12_000
 const AUTH_RETRY_MS = 4_000
-const MEASUREMENT_TIMEOUT_MS = 20_000
+const STOP_SETTLE_MS = 400
+const MEASUREMENT_COOLDOWN_MS = 800
 const AUTH_SUCCESS = new Set(['successfulVerification', 'passTheVerification'])
 const AUTH_FAILURE = new Set(['verifyNotPass', 'setupFailed', 'readFailed'])
 
@@ -20,7 +21,7 @@ export type VeepooTransportFactory = (
   device: BeacioDevice,
 ) => ManagedVeepooTransport
 export interface VeepooHeartRateControl {
-  requestMeasurement(): void
+  toggleMeasurement(): void
 }
 
 export const loadVeepooSdk: VeepooSdkLoader = async () => {
@@ -81,23 +82,22 @@ export function processVeepooHeartEvent(
   deviceId: string,
   engine: MonitoringEngine,
 ) {
-  if (!content) return false
-  engine.preparation('receiving')
+  if (!content) return 'invalid' as const
   if (content.deviceBusy === true) {
     engine.capability('heartRate', 'waiting')
-    engine.setError('El H7 está ocupado con otra medición. Detenela en el reloj e intentá nuevamente.')
-    return false
+    engine.setError('El H7 estaba procesando otra función. Esperá un momento y volvé a medir.')
+    return 'busy' as const
   }
   if (content.notWear === true) {
     engine.capability('heartRate', 'waiting')
     engine.contactStatus(false)
     engine.setError('El H7 no detecta contacto con la piel. Ajustá el brazalete para medir el pulso.')
-    return false
+    return 'not-worn' as const
   }
   const heartRate = numeric(content.heartRate)
   if (heartRate === null || !Number.isInteger(heartRate) || heartRate < 30 || heartRate > 250) {
     engine.capability('heartRate', 'waiting')
-    return false
+    return 'invalid' as const
   }
   engine.setError(null)
   engine.capability('heartRate', 'available')
@@ -109,7 +109,7 @@ export function processVeepooHeartEvent(
     value: heartRate,
     contact: true,
   })
-  return true
+  return 'valid' as const
 }
 
 const waitWithTimeout = <T>(
@@ -152,7 +152,8 @@ export async function subscribeVeepooSensors(
     loadSdk?: VeepooSdkLoader
     createTransport?: VeepooTransportFactory
     authenticationTimeoutMs?: number
-    measurementTimeoutMs?: number
+    stopSettleMs?: number
+    measurementCooldownMs?: number
     onHeartRateControl?: (control: VeepooHeartRateControl | null) => void
   } = {},
 ) {
@@ -207,17 +208,18 @@ export async function subscribeVeepooSensors(
   }
 
   let measurementStarted = false
+  let measurementState: 'idle' | 'starting' | 'measuring' | 'stopping' | 'cooldown' = 'idle'
   let disposed = false
-  let measurementTimer: number | null = null
+  let measurementTransitionTimer: number | null = null
   let authenticationRetryTimer: number | null = null
   let authenticationFinished = false
   const clearAuthenticationRetry = () => {
     if (authenticationRetryTimer !== null) window.clearTimeout(authenticationRetryTimer)
     authenticationRetryTimer = null
   }
-  const clearMeasurementTimer = () => {
-    if (measurementTimer !== null) window.clearTimeout(measurementTimer)
-    measurementTimer = null
+  const clearMeasurementTransition = () => {
+    if (measurementTransitionTimer !== null) window.clearTimeout(measurementTransitionTimer)
+    measurementTransitionTimer = null
   }
   let resolveAuthentication!: () => void
   let rejectAuthentication!: (error: Error) => void
@@ -259,8 +261,22 @@ export async function subscribeVeepooSensors(
         })
       }
     } else if (event.type === 51) {
-      clearMeasurementTimer()
-      processVeepooHeartEvent(event.content, device.id, engine)
+      if (measurementState !== 'starting' && measurementState !== 'measuring') return
+      const result = processVeepooHeartEvent(event.content, device.id, engine)
+      if (result === 'valid') {
+        measurementState = 'measuring'
+        engine.preparation('receiving')
+      } else if (result === 'busy' || result === 'not-worn') {
+        measurementStarted = false
+        measurementState = 'cooldown'
+        engine.preparation('measurement-cooldown')
+        clearMeasurementTransition()
+        measurementTransitionTimer = window.setTimeout(() => {
+          if (disposed || signal.aborted || measurementState !== 'cooldown') return
+          measurementState = 'idle'
+          engine.preparation('ready-to-measure')
+        }, options.measurementCooldownMs ?? MEASUREMENT_COOLDOWN_MS)
+      }
     } else if (event.errMsg) {
       const detail = event.errMsg.toLowerCase()
       if (
@@ -321,23 +337,48 @@ export async function subscribeVeepooSensors(
     )
     if (signal.aborted) throw new VeepooSessionError('SESSION_ABORTED', 'Sesión cancelada')
     sdk.veepooFeature.veepooReadElectricQuantityManager()
-    const requestMeasurement = () => {
-      if (disposed || signal.aborted) return
-      clearMeasurementTimer()
+    const finishMeasurement = () => {
+      if (
+        disposed ||
+        signal.aborted ||
+        (measurementState !== 'starting' && measurementState !== 'measuring')
+      )
+        return
+      clearMeasurementTransition()
+      measurementState = 'stopping'
+      engine.preparation('stopping-measurement')
+      if (measurementStarted)
+        sdk.veepooFeature.veepooSendHeartRateTestSwitchManager({ switch: false })
+      measurementStarted = false
+      measurementTransitionTimer = window.setTimeout(() => {
+        if (disposed || signal.aborted || measurementState !== 'stopping') return
+        measurementState = 'cooldown'
+        engine.preparation('measurement-cooldown')
+        measurementTransitionTimer = window.setTimeout(() => {
+          if (disposed || signal.aborted || measurementState !== 'cooldown') return
+          measurementState = 'idle'
+          engine.preparation('ready-to-measure')
+        }, options.measurementCooldownMs ?? MEASUREMENT_COOLDOWN_MS)
+      }, options.stopSettleMs ?? STOP_SETTLE_MS)
+    }
+    const startMeasurement = () => {
+      if (disposed || signal.aborted || measurementState !== 'idle') return
+      measurementState = 'starting'
+      clearMeasurementTransition()
       engine.setError(null)
       engine.capability('heartRate', 'waiting')
       engine.preparation('starting-measurement')
       sdk.veepooFeature.veepooSendHeartRateTestSwitchManager({ switch: true })
       measurementStarted = true
-      measurementTimer = window.setTimeout(() => {
-        engine.preparation('ready-to-measure')
-        engine.setError(
-          'El H7 está listo, pero todavía no obtuvo pulso. Ajustalo sobre la piel, apoyá el brazo y volvé a medir.',
-        )
-      }, options.measurementTimeoutMs ?? MEASUREMENT_TIMEOUT_MS)
     }
-    options.onHeartRateControl?.({ requestMeasurement })
-    requestMeasurement()
+    options.onHeartRateControl?.({
+      toggleMeasurement: () => {
+        if (measurementState === 'idle') startMeasurement()
+        else if (measurementState === 'starting' || measurementState === 'measuring')
+          finishMeasurement()
+      },
+    })
+    engine.preparation('ready-to-measure')
   } catch (error) {
     disposed = true
     clearAuthenticationRetry()
@@ -350,7 +391,7 @@ export async function subscribeVeepooSensors(
     if (disposed) return
     disposed = true
     clearAuthenticationRetry()
-    clearMeasurementTimer()
+    clearMeasurementTransition()
     options.onHeartRateControl?.(null)
     try {
       if (measurementStarted)

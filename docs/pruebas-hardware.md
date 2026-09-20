@@ -39,10 +39,10 @@ Completar para cada modelo antes de declarar compatibilidad:
 
 1. Confirmar que el modelo funciona con Veepoo Health, anotar firmware y cerrar por completo esa aplicación y cualquier otra que mantenga el H7 ocupado.
 2. Aunque figure emparejado en macOS, pulsar **Conectar pulsera** y elegir H7 en el diálogo protegido de Chrome/Edge.
-3. Comprobar la secuencia visible “Reconociendo sensores” → “Autenticando H7” → “Iniciando medición” → “Recibiendo datos”, el rótulo “Protocolo H7/Veepoo” y la batería.
-4. Esperar el primer BPM y comparar varias lecturas con la pantalla del reloj, registrando latencia y diferencias sin atribuir precisión médica.
+3. Comprobar la secuencia visible “Reconociendo sensores” → “Autenticando H7” → “H7 listo para medir”, el rótulo “Protocolo H7/Veepoo” y la batería. La conexión no debe iniciar el sensor cardíaco.
+4. Pulsar **Medir frecuencia** y comprobar “Preparando sensor” → “Midiendo en vivo”; mantenerla activa varios minutos, comparar lecturas con la pantalla del reloj sin atribuir precisión médica y confirmar que no se detiene por tiempo. Pulsar **Detener medición** y esperar que el control vuelva a quedar disponible.
 5. Aflojar o retirar el brazalete de forma segura: debe informarse falta de contacto, sin 0 BPM ni evento clínico. Si el reloj está midiendo otra función, debe aparecer el error de dispositivo ocupado.
-6. Interrumpir el enlace y comprobar reconexión. Repetir tres conexiones manuales y verificar que cada una autentique/inicie una vez, sin lecturas o listeners duplicados.
+6. Repetir tres ciclos de inicio y detención sin `deviceBusy` originado por la página. Luego interrumpir el enlace y comprobar reconexión sin lecturas, listeners ni comandos duplicados.
 7. Pulsar Desconectar, pasar a demo y cerrar sesión en ensayos separados. Confirmar que la medición se detiene en el reloj y que no llegan más muestras.
 8. Revisar consola y estado GATT sólo durante el ensayo. No conservar identificadores ni volcados de paquetes sensibles.
 

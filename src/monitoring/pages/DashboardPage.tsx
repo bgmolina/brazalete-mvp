@@ -62,9 +62,11 @@ const preparationLabels = {
   idle: 'Dispositivo conectado',
   discovering: 'Reconociendo sensores…',
   authenticating: 'Autenticando H7…',
-  'starting-measurement': 'Iniciando medición…',
+  'starting-measurement': 'Preparando sensor…',
+  'stopping-measurement': 'Deteniendo medición…',
+  'measurement-cooldown': 'Esperando al H7…',
   'ready-to-measure': 'H7 listo para medir',
-  receiving: 'Recibiendo datos',
+  receiving: 'Midiendo en vivo',
 }
 function ChartLoading() {
   return <Skeleton className="h-56 w-full rounded-lg" />
@@ -80,7 +82,11 @@ export function DashboardPage() {
   const motionAvailable = s.capabilities.acceleration === 'available'
   const noContact = s.contact === false
   const connectionText =
-    connected && !demo ? preparationLabels[s.preparation] : connectionLabels[s.connection]
+    connected && !demo
+      ? s.protocol === 'standard-heart-rate' && s.preparation === 'receiving'
+        ? 'Recibiendo datos'
+        : preparationLabels[s.preparation]
+      : connectionLabels[s.connection]
   const heartLabel = vm.stale
     ? 'Lectura desactualizada'
     : noContact
@@ -90,19 +96,22 @@ export function DashboardPage() {
         : s.heartRate === null
           ? 'Esperando una lectura'
           : 'Última lectura recibida'
-  const h7Ready =
-    connected &&
-    s.protocol === 'veepoo' &&
-    (s.preparation === 'receiving' || s.preparation === 'ready-to-measure')
-  const h7Measuring =
+  const h7Ready = connected && s.protocol === 'veepoo' && s.preparation === 'ready-to-measure'
+  const h7Starting =
     connected && s.protocol === 'veepoo' && s.preparation === 'starting-measurement'
+  const h7Live = connected && s.protocol === 'veepoo' && s.preparation === 'receiving'
+  const h7Stopping =
+    connected && s.protocol === 'veepoo' && s.preparation === 'stopping-measurement'
+  const h7Cooldown =
+    connected && s.protocol === 'veepoo' && s.preparation === 'measurement-cooldown'
+  const h7Transitioning = h7Stopping || h7Cooldown
   const measurementAdvice = noContact
     ? 'Ajustá el brazalete para que el sensor apoye sobre la piel.'
     : vm.stale
       ? 'La lectura perdió vigencia. Mantené el brazo quieto y actualizala.'
       : s.heartRate !== null
         ? `Última lectura: ${s.heartRate} BPM. Podés actualizarla cuando lo necesites.`
-        : 'Usá el brazalete firme, apoyá el brazo y evitá moverte durante 15–20 segundos.'
+        : 'Usá el brazalete firme, apoyá el brazo y evitá moverte mientras busca el pulso.'
   return (
     <div className="dashboard-page page-enter">
       <div className="page-heading">
@@ -214,25 +223,37 @@ export function DashboardPage() {
       ) : null}
       {!demo && connected ? (
         <section
-          className={`measurement-guide ${h7Measuring ? 'is-measuring' : ''}`}
+          className={`measurement-guide ${h7Starting || h7Live ? 'is-measuring' : ''}`}
           aria-label="Medición de frecuencia cardíaca"
         >
           <div className="measurement-orbit" aria-hidden="true">
             <span />
             <HeartPulse size={24} />
           </div>
-          <div className="measurement-copy">
+          <div className="measurement-copy" aria-live="polite">
             <span className="eyebrow">MEDICIÓN GUIADA</span>
             <h2>
               {s.protocol === 'veepoo'
-                ? h7Measuring
-                  ? 'Midiendo tu frecuencia…'
-                  : 'Tomá una lectura cuando estés listo.'
+                ? h7Starting
+                  ? 'Preparando el sensor…'
+                  : h7Live
+                    ? 'Midiendo en vivo.'
+                    : h7Stopping
+                      ? 'Cerrando la medición…'
+                      : h7Cooldown
+                        ? 'Esperando que el H7 quede libre…'
+                        : 'Tomá una lectura cuando estés listo.'
                 : 'La frecuencia se recibe automáticamente.'}
             </h2>
             <p>
               {s.protocol === 'veepoo'
-                ? measurementAdvice
+                ? h7Starting
+                  ? 'Buscando una lectura válida. La medición continuará hasta que la detengas.'
+                  : h7Live
+                    ? 'Las lecturas se actualizan hasta que detengas la medición.'
+                    : h7Stopping || h7Cooldown
+                      ? 'No inicies otra medición hasta que el control vuelva a estar disponible.'
+                      : measurementAdvice
                 : 'El sensor cardíaco estándar envía lecturas continuas mientras permanece conectado.'}
             </p>
             {s.protocol === 'veepoo' ? (
@@ -247,16 +268,26 @@ export function DashboardPage() {
             {s.protocol === 'veepoo' ? (
               <Button
                 size="lg"
-                disabled={!h7Ready || h7Measuring}
-                onClick={a.measureHeartRate}
+                disabled={(!h7Ready && !h7Starting && !h7Live) || h7Transitioning}
+                onClick={a.toggleHeartRateMeasurement}
                 aria-describedby="measurement-action-hint"
               >
-                {h7Measuring ? <Activity className="measurement-spin" /> : <HeartPulse />}
-                {h7Measuring
-                  ? 'Midiendo…'
-                  : s.heartRate === null || vm.stale || noContact
-                    ? 'Medir frecuencia'
-                    : 'Actualizar BPM'}
+                {h7Stopping || h7Cooldown ? (
+                  <Activity className="measurement-spin" />
+                ) : h7Starting || h7Live ? (
+                  <Pause />
+                ) : (
+                  <HeartPulse />
+                )}
+                {h7Starting
+                  ? 'Detener medición'
+                  : h7Stopping
+                    ? 'Deteniendo…'
+                    : h7Cooldown
+                      ? 'Esperando H7…'
+                      : h7Live
+                        ? 'Detener medición'
+                        : 'Medir frecuencia'}
               </Button>
             ) : (
               <span className="automatic-measurement">
@@ -265,9 +296,13 @@ export function DashboardPage() {
             )}
             <small id="measurement-action-hint">
               {s.protocol === 'veepoo'
-                ? h7Measuring
-                  ? 'Esperando una lectura válida del H7.'
-                  : 'Envía una nueva solicitud directamente al H7.'
+                ? h7Starting
+                  ? 'El H7 seguirá buscando pulso hasta que detengas la medición.'
+                  : h7Live
+                    ? 'La medición continuará hasta que la detengas.'
+                    : h7Stopping || h7Cooldown
+                      ? 'Finalizando el sensor de forma segura.'
+                      : 'Inicia una medición nueva directamente en el H7.'
                 : 'No requiere una acción manual.'}
             </small>
           </div>

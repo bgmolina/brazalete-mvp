@@ -16,6 +16,7 @@ declare global {
       authenticate?: (result?: string) => void
       stopped?: () => boolean
       measurementRequests?: () => number
+      measurementStops?: () => number
     }
   }
 }
@@ -60,6 +61,7 @@ export function installVeepooTestDevice() {
   let notify: ((event: VeepooEvent) => void) | null = null
   let stopped = false
   let measurementRequests = 0
+  let measurementStops = 0
   const sdk: VeepooSdk = {
     init: ({ transport, bleDate }) => {
       const bridge = transport as VeepooTransport
@@ -84,7 +86,10 @@ export function installVeepooTestDevice() {
         notify?.({ type: 2, content: { VPDeviceElectricPercent: 68 } }),
       veepooSendHeartRateTestSwitchManager: ({ switch: enabled }) => {
         if (enabled) measurementRequests++
-        else stopped = true
+        else {
+          stopped = true
+          measurementStops++
+        }
       },
     },
   }
@@ -104,5 +109,6 @@ export function installVeepooTestDevice() {
     disconnect: () => mock.getDevice('e2e-h7')!.simulateDisconnect(),
     stopped: () => stopped,
     measurementRequests: () => measurementRequests,
+    measurementStops: () => measurementStops,
   }
 }

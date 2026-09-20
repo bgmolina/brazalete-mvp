@@ -5,6 +5,8 @@ export type PreparationPhase =
   | 'discovering'
   | 'authenticating'
   | 'starting-measurement'
+  | 'stopping-measurement'
+  | 'measurement-cooldown'
   | 'ready-to-measure'
   | 'receiving'
 export type SensorKind = 'heartRate' | 'acceleration' | 'steps' | 'battery'
