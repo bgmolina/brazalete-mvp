@@ -22,4 +22,5 @@ export const eventTitle = {
   'zero-heart-rate': 'Lectura de 0 BPM: revisar medición',
   'possible-fall': 'Posible caída',
   disconnected: 'Conexión interrumpida',
+  'email-notification': 'Email enviado al contacto familiar',
 } as const

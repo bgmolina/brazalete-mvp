@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
+import { lazy, Suspense, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
+import { toast } from 'sonner'
 import {
   Activity,
   ArrowDown,
@@ -13,6 +14,7 @@ import {
   HeartPulse,
   Info,
   Leaf,
+  MailCheck,
   Pause,
   Play,
   Radio,
@@ -77,6 +79,27 @@ export function DashboardPage() {
   const demo = a.mode === 'demo'
   const navigate = useNavigate()
   const base = demo ? '/demo' : '/monitoreo'
+  const knownEmailEvents = useRef<Set<string> | null>(null)
+  useEffect(() => {
+    const emailEvents = s.events.filter((event) => event.type === 'email-notification')
+    if (knownEmailEvents.current === null) {
+      knownEmailEvents.current = new Set(emailEvents.map((event) => event.id))
+      return
+    }
+    const unseen = emailEvents.find((event) => !knownEmailEvents.current!.has(event.id))
+    emailEvents.forEach((event) => knownEmailEvents.current!.add(event.id))
+    if (!demo || !unseen) return
+    toast.success('Email simulado enviado al contacto familiar', {
+      id: `demo-email-${unseen.id}`,
+      description: 'La lectura de 0 BPM quedó registrada después de una posible caída.',
+      icon: <MailCheck size={17} />,
+      duration: 8000,
+      action: {
+        label: 'Ver evento',
+        onClick: () => navigate('/demo/alertas'),
+      },
+    })
+  }, [demo, navigate, s.events])
   const connected = s.connection === 'connected'
   const loading = ['requesting', 'connecting', 'reconnecting'].includes(s.connection)
   const motionAvailable = s.capabilities.acceleration === 'available'
@@ -628,7 +651,7 @@ export function DashboardPage() {
             </span>
             <div>
               <h3>Explorá diferentes escenarios</h3>
-              <p>Probá cómo responde el panel. No se envía ninguna notificación.</p>
+              <p>Probá cómo responde el panel, incluidos avisos por email simulados.</p>
             </div>
           </div>
           <div className="simulation-controls">
@@ -656,8 +679,9 @@ export function DashboardPage() {
           </div>
           {a.scenario === 'fall' ? (
             <p className="simulation-hint" role="status">
-              El escenario necesita aproximadamente 13 segundos de señal continua para registrar el
-              evento.
+              Tras aproximadamente 5 segundos de señal continua, la demo acelerada registrará la
+              posible caída, una lectura de 0 BPM y un email ficticio. No se enviará ningún correo
+              real.
             </p>
           ) : null}
         </section>

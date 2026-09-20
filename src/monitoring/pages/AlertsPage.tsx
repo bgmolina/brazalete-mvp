@@ -43,7 +43,7 @@ export function AlertsPage() {
         <Info size={18} />
         <span>
           {vm.mode === 'demo'
-            ? 'Estos eventos son ficticios. Explorá sus detalles y marcá los que ya revisaste.'
+            ? 'Estos eventos y envíos son ficticios. Explorá sus detalles y marcá los que ya revisaste.'
             : 'Registro local; envío no implementado. No se envían mensajes, llamadas ni notificaciones externas.'}{' '}
           Ningún evento confirma un diagnóstico.
         </span>
@@ -90,6 +90,7 @@ export function AlertsPage() {
                 <SelectItem value="all">Todos los eventos</SelectItem>
                 <SelectItem value="zero-heart-rate">Lectura de 0 BPM</SelectItem>
                 <SelectItem value="possible-fall">Posible caída</SelectItem>
+                <SelectItem value="email-notification">Email al contacto</SelectItem>
                 <SelectItem value="disconnected">Desconexión</SelectItem>
               </SelectContent>
             </Select>
@@ -157,7 +158,9 @@ export function AlertsPage() {
                   <Info size={16} />
                   {vm.mode === 'real'
                     ? 'Registro local; envío no implementado.'
-                    : 'Evento ficticio. No se envió ninguna notificación.'}
+                    : vm.selected.type === 'email-notification'
+                      ? 'Confirmación simulada. No se envió ningún correo real.'
+                      : 'Evento ficticio. Cualquier envío indicado pertenece sólo a la simulación.'}
                 </div>
               </div>
               <DialogFooter>

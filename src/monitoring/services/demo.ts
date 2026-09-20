@@ -2,6 +2,7 @@ import { emptySummary, type MonitoringEngine } from '@shared/services/Monitoring
 import type { HeartPoint, MinuteSummary } from '@shared/types/monitoring'
 export type DemoScenario = 'rest' | 'moving' | 'zero' | 'fall' | 'disconnected'
 const DEMO_ID = 'demo-elena-01'
+const DEMO_FALL_DELAY_MS = 5000
 export class DemoSimulation {
   scenario: DemoScenario = 'rest'
   paused = false
@@ -10,6 +11,9 @@ export class DemoSimulation {
   private start = 0
   private tickIndex = 0
   private counter = 1684
+  private fallConfirmed = false
+  private fallNotificationSent = false
+  private fallSignalStartedAt: number | null = null
   constructor(private engine: MonitoringEngine) {}
   reset(now = Date.now()) {
     this.scenario = 'rest'
@@ -19,6 +23,9 @@ export class DemoSimulation {
     this.start = now
     this.lastHeart = 0
     this.lastSample = 0
+    this.fallConfirmed = false
+    this.fallNotificationSent = false
+    this.fallSignalStartedAt = null
     this.engine.clearHistory()
     this.engine.attach(DEMO_ID, 'Brazalete · Demo', true)
     const summaries: MinuteSummary[] = []
@@ -78,6 +85,9 @@ export class DemoSimulation {
     this.scenario = scenario
     this.start = Date.now()
     this.tickIndex = 0
+    this.fallConfirmed = false
+    this.fallNotificationSent = false
+    this.fallSignalStartedAt = scenario === 'fall' ? this.start : null
     if (scenario === 'disconnected') this.engine.connection('disconnected', null, true)
     else if (this.engine.snapshot().connection !== 'connected')
       this.engine.attach(DEMO_ID, 'Brazalete · Demo', true)
@@ -85,6 +95,14 @@ export class DemoSimulation {
   }
   pause() {
     this.paused = !this.paused
+    if (this.paused) this.fallSignalStartedAt = null
+    else if (this.scenario === 'fall' && !this.fallConfirmed) {
+      const resumedAt = Math.floor(Date.now() / 50) * 50
+      this.lastSample = resumedAt
+      this.start = resumedAt
+      this.tickIndex = 0
+      this.fallSignalStartedAt = resumedAt
+    }
     this.engine.setPaused(this.paused)
   }
   step(now = Date.now()) {
@@ -92,7 +110,14 @@ export class DemoSimulation {
     const end = Math.floor(now / 50) * 50
     // A deterministic 20 Hz fictional source, with bounded catch-up for timer jitter.
     // Long pauses intentionally create a gap instead of fabricating continuity.
-    if (!this.lastSample || end - this.lastSample > 150) this.lastSample = end - 50
+    if (!this.lastSample || end - this.lastSample > 150) {
+      this.lastSample = end - 50
+      if (this.scenario === 'fall' && !this.fallConfirmed) {
+        this.start = end
+        this.tickIndex = 0
+        this.fallSignalStartedAt = end
+      }
+    }
     while (this.lastSample + 50 <= end) {
       this.lastSample += 50
       this.sample(this.lastSample)
@@ -112,12 +137,33 @@ export class DemoSimulation {
         z: impact ? 3.2 : 1 + (moving ? Math.sin(this.tickIndex / 2) * 0.25 : 0.005),
       },
     })
-    if (now - this.lastHeart >= 1000) {
+    let forceHeartSample = false
+    if (this.scenario === 'fall' && !this.fallConfirmed) {
+      this.fallSignalStartedAt ??= now
+      if (now - this.fallSignalStartedAt >= DEMO_FALL_DELAY_MS) {
+        this.engine.addDemoEvent(
+          'possible-fall',
+          'Escenario acelerado: se simuló un impacto seguido de señal continua de baja variación. Requiere verificación presencial.',
+          now,
+        )
+        this.fallConfirmed = true
+        forceHeartSample = true
+      }
+    }
+    if (forceHeartSample || now - this.lastHeart >= 1000) {
       const hr =
-        this.scenario === 'zero'
+        this.scenario === 'zero' || this.fallConfirmed
           ? 0
           : (moving ? 88 : 72) + Math.round(3 * Math.sin(elapsed / 7000) + Math.sin(elapsed / 2100))
       this.engine.ingest({ ...base, kind: 'heartRate', value: hr, contact: true })
+      if (this.fallConfirmed && !this.fallNotificationSent) {
+        this.engine.addDemoEvent(
+          'email-notification',
+          'Envío simulado: se notificó al contacto familiar por la lectura de 0 BPM registrada después de una posible caída. No se envió ningún correo real.',
+          now,
+        )
+        this.fallNotificationSent = true
+      }
       this.engine.ingest({ ...base, kind: 'battery', value: 84 })
       this.counter += moving ? 2 : 0
       this.engine.ingest({ ...base, kind: 'steps', value: this.counter })

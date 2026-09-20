@@ -245,12 +245,32 @@ test('ficha, importación de perfil, retención al reabrir y limpieza limitada',
     'Ana Pérez',
   )
 })
-test('demo de caída genera evidencia sólo tras diez segundos de inmovilidad', async ({ page }) => {
+test('demo de caída registra 0 BPM, confirma el email en tiempo real y permite revisarlo', async ({
+  page,
+}) => {
   await page.clock.install()
   await login(page)
   await page.getByRole('button', { name: 'Posible caída', exact: true }).click()
-  await page.clock.runFor(13000)
+  await page.clock.runFor(4500)
+  await expect(
+    page.getByText('Email simulado enviado al contacto familiar', { exact: true }),
+  ).toHaveCount(0)
+  await page.clock.runFor(500)
   await expect(page.getByRole('button', { name: /Posible caída Evento simulado/ })).toBeVisible()
+  const toast = page.getByText('Email simulado enviado al contacto familiar', { exact: true })
+  await expect(toast).toBeVisible()
+  await page.getByRole('button', { name: 'Ver evento' }).click()
+  await expect(page).toHaveURL(/#\/demo\/alertas$/)
+  await page.getByRole('combobox', { name: 'Filtrar por tipo de evento' }).click()
+  await page.getByRole('option', { name: 'Email al contacto' }).click()
+  const emailEvent = page.getByRole('button', {
+    name: /Email enviado al contacto familiar Envío simulado/,
+  })
+  await expect(emailEvent).toBeVisible()
+  await emailEvent.click()
+  await expect(page.getByRole('dialog')).toContainText('No se envió ningún correo real')
+  await page.getByRole('button', { name: 'Marcar como revisada' }).click()
+  await expect(page.getByRole('button', { name: 'Ya revisada' })).toBeDisabled()
 })
 for (const viewport of [
   { width: 1440, height: 1000 },

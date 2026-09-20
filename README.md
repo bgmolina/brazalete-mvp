@@ -2,7 +2,7 @@
 
 Un espacio local de acompañamiento para familiares y cuidadores: frecuencia cardíaca, movimiento, pasos y eventos de una persona mayor. Incluye una demo independiente y conexión BLE real a una pulsera compatible.
 
-**Es un prototipo orientativo, no un dispositivo médico ni un sistema de emergencias.** Una lectura de 0 BPM no confirma un paro cardíaco. Las posibles caídas requieren verificación presencial. No se envían notificaciones, mensajes ni llamadas.
+**Es un prototipo orientativo, no un dispositivo médico ni un sistema de emergencias.** Una lectura de 0 BPM no confirma un paro cardíaco. Las posibles caídas requieren verificación presencial. La demo puede representar un aviso por email, pero no se envían notificaciones, mensajes ni llamadas reales.
 
 ## Iniciar en local
 
@@ -46,7 +46,7 @@ Las rutas alojadas usan hash, por ejemplo `/brazalete-mvp/#/demo`, para permitir
 
 El panel muestra BPM, rango válido del período, movimiento, pasos de la sesión y hora de actualización. Contiene un gráfico de diez minutos, historial con promedio/rango y selección de intervalo, magnitud de aceleración y tabla X/Y/Z. No representa una señal ECG.
 
-La demo permite reposo, movimiento, lectura cero, posible caída y desconexión, además de pausa y reinicio. El escenario de caída requiere aproximadamente trece segundos de ejecución continua. Los datos simulados no se guardan como telemetría real.
+La demo permite reposo, movimiento, lectura cero, posible caída y desconexión, además de pausa y reinicio. Para agilizar la demostración, el escenario de caída usa una secuencia acelerada que requiere aproximadamente cinco segundos de señal continua; al confirmarse, simula una lectura de 0 BPM y registra un email ficticio al contacto familiar. La vista general muestra la confirmación en tiempo real y el historial permite revisar el evento. Ningún correo sale del navegador, los datos simulados no se guardan como telemetría real y el detector del modo real conserva sus parámetros técnicos.
 
 ## Conectar una pulsera
 

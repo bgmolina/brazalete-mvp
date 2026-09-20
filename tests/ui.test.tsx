@@ -216,6 +216,24 @@ describe('Panel, configuración y eventos', () => {
     await userEvent.click(screen.getByRole('switch', { name: 'Sin revisar' }))
     expect(screen.getByText('Todo en orden por acá')).toBeVisible()
   })
+  it('presenta el email ficticio como un evento demo revisable', async () => {
+    act(() => {
+      demoEngine.attach('demo-email', 'Brazalete · Demo')
+      demoEngine.addDemoEvent(
+        'email-notification',
+        'Envío simulado por una lectura de 0 BPM posterior a una posible caída.',
+        Date.now(),
+      )
+    })
+    wrap(<AlertsPage />, 'demo')
+    await userEvent.click(
+      screen.getByRole('button', { name: /Email enviado al contacto familiar/ }),
+    )
+    expect(screen.getByRole('dialog')).toHaveTextContent('No se envió ningún correo real')
+    expect(screen.getByRole('dialog')).toHaveTextContent('lectura de 0 BPM')
+    await userEvent.click(screen.getByRole('button', { name: 'Marcar como revisada' }))
+    expect(screen.getByRole('button', { name: 'Ya revisada' })).toBeDisabled()
+  })
   it('limpieza solicita confirmación y no toca otras claves', async () => {
     localStorage.setItem('otro-sitio', 'preservado')
     realEngine.attach('test', 'Reloj')

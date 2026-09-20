@@ -1148,6 +1148,10 @@
   background: #f8f0de;
   color: #866524;
 }
+.event-email-notification {
+  background: #eaf3ee;
+  color: #3f7358;
+}
 .event-copy {
   display: block;
   min-width: 0;

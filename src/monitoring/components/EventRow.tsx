@@ -1,10 +1,18 @@
-import { Activity, BluetoothOff, CircleAlert, ChevronRight, CircleCheck } from 'lucide-react'
+import {
+  Activity,
+  BluetoothOff,
+  CircleAlert,
+  ChevronRight,
+  CircleCheck,
+  MailCheck,
+} from 'lucide-react'
 import type { MonitoringEvent } from '@shared/types/monitoring'
 import { eventTitle, relativeTime, time } from '@shared/utils/format'
 const icons = {
   'zero-heart-rate': Activity,
   'possible-fall': CircleAlert,
   disconnected: BluetoothOff,
+  'email-notification': MailCheck,
 }
 export function EventRow({ event, onClick }: { event: MonitoringEvent; onClick?: () => void }) {
   const Icon = icons[event.type]
@@ -16,7 +24,12 @@ export function EventRow({ event, onClick }: { event: MonitoringEvent; onClick?:
       <span className="event-copy">
         <strong>{eventTitle[event.type]}</strong>
         <span>
-          {event.source === 'demo' ? 'Evento simulado' : 'Registro local; envío no implementado'} ·{' '}
+          {event.type === 'email-notification'
+            ? 'Envío simulado'
+            : event.source === 'demo'
+              ? 'Evento simulado'
+              : 'Registro local; envío no implementado'}{' '}
+          ·{' '}
           {time(event.timestamp)}
         </span>
       </span>

@@ -56,7 +56,11 @@ export interface MinuteSummary {
   movementCount: number
   steps: number
 }
-export type EventType = 'zero-heart-rate' | 'possible-fall' | 'disconnected'
+export type EventType =
+  | 'zero-heart-rate'
+  | 'possible-fall'
+  | 'disconnected'
+  | 'email-notification'
 export interface MonitoringEvent {
   id: string
   deviceId: string
