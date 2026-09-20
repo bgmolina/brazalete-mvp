@@ -34,6 +34,34 @@ describe('Simulación determinista y aislada', () => {
     expect(engine.snapshot().events).toHaveLength(2)
     expect(demo.paused).toBe(false)
   })
+  it('lectura cero permanece disponible internamente y separa episodios al recuperarse', () => {
+    const { engine, demo } = create()
+    demo.setScenario('zero')
+    advance(demo, NOW, 1000)
+    expect(engine.snapshot().heartRate).toBe(0)
+    expect(
+      engine
+        .snapshot()
+        .events.filter((event) => event.type === 'zero-heart-rate' && event.timestamp >= NOW),
+    ).toHaveLength(1)
+
+    advance(demo, NOW + 1000, 5000)
+    expect(
+      engine
+        .snapshot()
+        .events.filter((event) => event.type === 'zero-heart-rate' && event.timestamp >= NOW),
+    ).toHaveLength(1)
+
+    demo.setScenario('rest')
+    advance(demo, NOW + 6000, 1000)
+    demo.setScenario('zero')
+    advance(demo, NOW + 7000, 1000)
+    expect(
+      engine
+        .snapshot()
+        .events.filter((event) => event.type === 'zero-heart-rate' && event.timestamp >= NOW),
+    ).toHaveLength(2)
+  })
   it('caída acelerada confirma 0 BPM y un único email exactamente tras cinco segundos', () => {
     const { engine, demo } = create()
     demo.setScenario('fall')

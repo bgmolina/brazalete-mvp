@@ -45,12 +45,10 @@ const HistoryChart = lazy(() =>
 const MotionChart = lazy(() =>
   import('@monitoring/components/TelemetryCharts').then((m) => ({ default: m.MotionChart })),
 )
-const scenarios: { value: Scenario; label: string }[] = [
+const visibleScenarios: { value: Scenario; label: string }[] = [
   { value: 'rest', label: 'Reposo' },
   { value: 'moving', label: 'Movimiento' },
-  { value: 'zero', label: 'Lectura cero' },
-  { value: 'fall', label: 'Posible caída' },
-  { value: 'disconnected', label: 'Desconexión' },
+  { value: 'fall', label: 'Posible paro cardíaco' },
 ]
 const connectionLabels = {
   disconnected: 'Sin conexión',
@@ -655,7 +653,7 @@ export function DashboardPage() {
             </div>
           </div>
           <div className="simulation-controls">
-            {scenarios.map((sc) => (
+            {visibleScenarios.map((sc) => (
               <button
                 key={sc.value}
                 aria-pressed={a.scenario === sc.value}

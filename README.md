@@ -46,7 +46,7 @@ Las rutas alojadas usan hash, por ejemplo `/brazalete-mvp/#/demo`, para permitir
 
 El panel muestra BPM, rango válido del período, movimiento, pasos de la sesión y hora de actualización. Contiene un gráfico de diez minutos, historial con promedio/rango y selección de intervalo, magnitud de aceleración y tabla X/Y/Z. No representa una señal ECG.
 
-La demo permite reposo, movimiento, lectura cero, posible caída y desconexión, además de pausa y reinicio. Para agilizar la demostración, el escenario de caída usa una secuencia acelerada que requiere aproximadamente cinco segundos de señal continua; al confirmarse, simula una lectura de 0 BPM y registra un email ficticio al contacto familiar. La vista general muestra la confirmación en tiempo real y el historial permite revisar el evento. Ningún correo sale del navegador, los datos simulados no se guardan como telemetría real y el detector del modo real conserva sus parámetros técnicos.
+Los controles visibles de la demo permiten reposo, movimiento y el escenario **Posible paro cardíaco**, además de pausa y reinicio. Los escenarios internos de lectura cero y desconexión se conservan para verificación automatizada, pero no se muestran como controles. Para agilizar la demostración, el escenario cardíaco usa la secuencia acelerada de posible caída, que requiere aproximadamente cinco segundos de señal continua; al confirmarse, simula una lectura de 0 BPM y registra un email ficticio al contacto familiar. La vista general muestra la confirmación en tiempo real y el historial permite revisar el evento. Ningún correo sale del navegador, los datos simulados no se guardan como telemetría real y el detector del modo real conserva sus parámetros técnicos.
 
 ## Conectar una pulsera
 

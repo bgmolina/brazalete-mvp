@@ -87,12 +87,17 @@ test('login por teclado, validación, sesión de pestaña y logout', async ({ pa
   await expect(page).toHaveURL(/login/)
   expect(await page.evaluate(() => sessionStorage.getItem('brazalete:session'))).toBeNull()
 })
-test('escenario cero, deduplicación, revisión y aislamiento demo/real', async ({ page }) => {
+test('controles visibles, revisión y aislamiento demo/real', async ({ page }) => {
+  await page.clock.install()
   await login(page)
-  await page.getByRole('button', { name: 'Lectura cero', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Lectura cero', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Desconexión', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Posible caída', exact: true })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Posible paro cardíaco', exact: true }).click()
+  await page.clock.runFor(5000)
   await expect(page.locator('.pulse-metric .metric-value')).toContainText('0')
   await page.getByRole('link', { name: /Alertas y eventos/ }).click()
-  await expect(page.locator('.event-list .event-row')).toHaveCount(3)
+  await expect(page.locator('.event-list .event-row')).toHaveCount(5)
   await page.locator('.event-list .event-row').first().click()
   await page.getByRole('button', { name: 'Marcar como revisada' }).click()
   await expect(page.getByRole('button', { name: 'Ya revisada' })).toBeDisabled()
@@ -250,7 +255,7 @@ test('demo de caída registra 0 BPM, confirma el email en tiempo real y permite 
 }) => {
   await page.clock.install()
   await login(page)
-  await page.getByRole('button', { name: 'Posible caída', exact: true }).click()
+  await page.getByRole('button', { name: 'Posible paro cardíaco', exact: true }).click()
   await page.clock.runFor(4500)
   await expect(
     page.getByText('Email simulado enviado al contacto familiar', { exact: true }),
@@ -275,6 +280,7 @@ test('demo de caída registra 0 BPM, confirma el email en tiempo real y permite 
 for (const viewport of [
   { width: 1440, height: 1000 },
   { width: 820, height: 1180 },
+  { width: 606, height: 900 },
   { width: 390, height: 844 },
 ]) {
   test(`revisión visual y accesibilidad ${viewport.width}px`, async ({ page }, testInfo) => {

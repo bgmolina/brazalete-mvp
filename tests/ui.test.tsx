@@ -166,6 +166,19 @@ describe('Panel, configuración y eventos', () => {
     expect(screen.getByRole('status', { name: '84% de batería, carga suficiente' })).toBeVisible()
     expect(screen.queryByRole('button', { name: 'Desconectar' })).not.toBeInTheDocument()
   })
+  it('muestra sólo los escenarios habilitados en los controles de la demo', () => {
+    demoEngine.attach('demo-controls', 'Brazalete · Demo')
+    wrap(<DashboardPage />, 'demo')
+
+    expect(screen.getByRole('button', { name: 'Reposo' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Movimiento' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Posible paro cardíaco' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Lectura cero' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Desconexión' })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Posible caída' })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Pausar simulación' })).toBeVisible()
+    expect(screen.getByRole('button', { name: 'Reiniciar demo' })).toBeVisible()
+  })
   it('no rellena sensores parciales con datos ficticios', async () => {
     realEngine.attach('test', 'Sensor parcial')
     realEngine.capability('heartRate', 'available')
