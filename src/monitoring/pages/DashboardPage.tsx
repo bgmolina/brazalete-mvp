@@ -6,7 +6,6 @@ import {
   ArrowRight,
   ArrowUp,
   Bluetooth,
-  BluetoothConnected,
   ChevronRight,
   CircleAlert,
   Clock3,
@@ -30,6 +29,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useDashboard } from '@monitoring/hooks/useDashboard'
 import { Capabilities } from '@monitoring/components/Capabilities'
 import { EventRow } from '@monitoring/components/EventRow'
+import { BatteryIndicator } from '@monitoring/components/BatteryIndicator'
 import { CareIllustration, PersonAvatar } from '@shared/components/CareIllustration'
 import { number, relativeTime, time } from '@shared/utils/format'
 import type { Scenario } from '@shared/hooks/useMonitoringActions'
@@ -163,10 +163,13 @@ export function DashboardPage() {
           </div>
         </div>
         <div className="person-actions">
-          <span className={`connection-label ${connected && !s.paused ? 'connected' : ''}`}>
-            <span className="status-dot" />
-            {s.paused ? 'Simulación pausada' : connectionText}
-          </span>
+          <div className="device-status-cluster">
+            <span className={`connection-label ${connected && !s.paused ? 'connected' : ''}`}>
+              <span className="status-dot" />
+              {s.paused ? 'Simulación pausada' : connectionText}
+            </span>
+            {connected || demo ? <BatteryIndicator value={s.battery} /> : null}
+          </div>
           {!demo ? (
             <Button
               variant={connected ? 'outline' : 'default'}
@@ -176,11 +179,7 @@ export function DashboardPage() {
               {connected ? <Unplug /> : <Bluetooth />}
               {connected ? 'Desconectar' : loading ? 'Conectando…' : 'Conectar pulsera'}
             </Button>
-          ) : (
-            <span className="battery-label">
-              <BluetoothConnected size={16} /> {s.battery ?? '—'}% batería
-            </span>
-          )}
+          ) : null}
         </div>
       </section>
       {s.error ? (
@@ -678,7 +677,6 @@ export function DashboardPage() {
           <Capabilities value={s.capabilities} />
           <p className="table-footnote">
             Identificador del navegador: {s.deviceId || 'sin dispositivo seleccionado'}
-            {s.battery !== null ? ` · Batería: ${s.battery}%` : ''}
           </p>
         </section>
       )}

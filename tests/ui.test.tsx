@@ -131,11 +131,40 @@ describe('Panel, configuración y eventos', () => {
       value: 82,
       contact: true,
     })
+    realEngine.ingest({
+      deviceId: 'h7-test',
+      source: 'real',
+      timestamp: Date.now(),
+      kind: 'battery',
+      value: 20,
+    })
     realEngine.publish()
     wrap(<DashboardPage />)
     expect(screen.getByText('1 · Brazalete firme')).toBeVisible()
+    expect(screen.getByRole('status', { name: '20% de batería, nivel bajo' })).toBeVisible()
     await userEvent.click(screen.getByRole('button', { name: 'Medir frecuencia' }))
     expect(actions.toggleHeartRateMeasurement).toHaveBeenCalledOnce()
+  })
+  it('muestra batería sin datos sólo mientras existe una conexión', () => {
+    realEngine.attach('sin-bateria', 'Sensor sin batería')
+    wrap(<DashboardPage />)
+    expect(screen.getByRole('status', { name: 'Batería sin datos' })).toBeVisible()
+    act(() => realEngine.connection('disconnected'))
+    expect(screen.queryByRole('status', { name: /Batería/ })).not.toBeInTheDocument()
+  })
+  it('presenta la batería simulada con el mismo indicador', () => {
+    demoEngine.attach('demo-battery', 'Brazalete · Demo')
+    demoEngine.ingest({
+      deviceId: 'demo-battery',
+      source: 'demo',
+      timestamp: Date.now(),
+      kind: 'battery',
+      value: 84,
+    })
+    demoEngine.publish()
+    wrap(<DashboardPage />, 'demo')
+    expect(screen.getByRole('status', { name: '84% de batería, carga suficiente' })).toBeVisible()
+    expect(screen.queryByRole('button', { name: 'Desconectar' })).not.toBeInTheDocument()
   })
   it('no rellena sensores parciales con datos ficticios', async () => {
     realEngine.attach('test', 'Sensor parcial')

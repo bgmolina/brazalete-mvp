@@ -494,6 +494,12 @@
   gap: 17px;
   align-items: center;
 }
+.device-status-cluster {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 13px;
+}
 .connection-label {
   font-size: 11px;
   display: flex;
@@ -504,14 +510,88 @@
 .connection-label.connected {
   color: #4f7441;
 }
-.battery-label {
+.device-battery {
+  --battery-color: #547746;
   display: flex;
-  gap: 5px;
+  min-width: 137px;
   align-items: center;
-  border-left: 1px solid #e3e8df;
-  padding-left: 16px;
-  color: #636e5c;
-  font-size: 11px;
+  gap: 9px;
+  padding: 7px 10px;
+  border: 1px solid #dce7d6;
+  border-radius: 9px;
+  color: #47633e;
+  background: #f3f8ef;
+}
+.battery-visual {
+  position: relative;
+  display: block;
+  width: 30px;
+  height: 14px;
+  flex-shrink: 0;
+  overflow: visible;
+  padding: 2px;
+  border: 1.5px solid currentcolor;
+  border-radius: 4px;
+}
+.battery-visual::after {
+  position: absolute;
+  top: 3px;
+  right: -4px;
+  width: 3px;
+  height: 6px;
+  border-radius: 0 2px 2px 0;
+  background: currentcolor;
+  content: '';
+}
+.battery-level {
+  display: block;
+  height: 100%;
+  min-width: 0;
+  border-radius: 2px;
+  background: var(--battery-color);
+  transition: width 320ms ease;
+}
+.battery-copy {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  line-height: 1.08;
+}
+.battery-copy strong {
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: -0.15px;
+}
+.battery-copy span {
+  margin-top: 3px;
+  color: currentcolor;
+  font-size: 8px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.device-battery.medium {
+  --battery-color: #9a7931;
+  border-color: #eadfbf;
+  color: #80641f;
+  background: #faf6e9;
+}
+.device-battery.low {
+  --battery-color: #b66537;
+  border-color: #efd5c3;
+  color: #97512d;
+  background: #fbf0e9;
+}
+.device-battery.critical {
+  --battery-color: #a94f49;
+  border-color: #ebcbc7;
+  color: #8f423d;
+  background: #faecea;
+}
+.device-battery.unknown {
+  --battery-color: #c3cac0;
+  border-color: #e3e7df;
+  color: #717a6d;
+  background: #f6f7f4;
 }
 .measurement-guide {
   position: relative;
@@ -1872,8 +1952,8 @@
     align-items: flex-end;
     gap: 8px;
   }
-  .battery-label {
-    border: 0;
+  .device-status-cluster {
+    gap: 10px;
   }
   .measurement-guide {
     grid-template-columns: auto minmax(0, 1fr);
@@ -2069,7 +2149,7 @@
     height: 43px;
   }
   .person-actions {
-    max-width: 150px;
+    max-width: 280px;
   }
   .connection-label {
     font-size: 11px;
@@ -2231,6 +2311,14 @@
     width: 100%;
     border-top: 1px solid #edf0e7;
     padding-top: 12px;
+  }
+  .device-status-cluster {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 7px;
+  }
+  .device-battery {
+    min-width: 132px;
   }
   .measurement-guide {
     grid-template-columns: 1fr;

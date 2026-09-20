@@ -114,7 +114,11 @@ test('Bluetooth simulado: recepción real, navegación, persistencia, desconexi�
   await page.getByRole('button', { name: 'En vivo', exact: true }).click()
   await page.getByRole('button', { name: 'Conectar pulsera', exact: true }).click()
   await expect(page.getByText('Recibiendo datos', { exact: true })).toBeVisible()
-  await expect(page.getByText('Batería: 100%', { exact: false })).toBeVisible()
+  const standardDevice = page.getByRole('region', { name: 'Persona y dispositivo' })
+  await expect(
+    standardDevice.getByRole('status', { name: '100% de batería, carga suficiente' }),
+  ).toBeVisible()
+  await expect(page.getByText('Batería: 100%', { exact: false })).toHaveCount(0)
   await page.evaluate(() => window.__bleTest.emitHeart(77))
   await expect(page.locator('.pulse-metric .metric-value')).toContainText('77')
   await page.getByRole('link', { name: /Alertas y eventos/ }).click()
@@ -156,7 +160,11 @@ test('H7 simulado: autentica y completa tres mediciones manuales sin duplicar co
   await expect(page.getByText('Autenticando H7…', { exact: true })).toBeVisible()
   await page.evaluate(() => window.__bleTest.authenticate?.())
   await expect(page.getByText('Protocolo H7/Veepoo', { exact: false })).toBeVisible()
-  await expect(page.getByText('Batería: 68%', { exact: false })).toBeVisible()
+  const h7Device = page.getByRole('region', { name: 'Persona y dispositivo' })
+  await expect(
+    h7Device.getByRole('status', { name: '68% de batería, carga suficiente' }),
+  ).toBeVisible()
+  await expect(page.getByText('Batería: 68%', { exact: false })).toHaveCount(0)
   await expect(page.getByText('H7 listo para medir', { exact: true })).toBeVisible()
   await expect.poll(() => page.evaluate(() => window.__bleTest.measurementRequests?.())).toBe(0)
   await expect(page.getByText('1 · Brazalete firme', { exact: true })).toBeVisible()
